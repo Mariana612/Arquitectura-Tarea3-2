@@ -13,9 +13,11 @@ section .data
 	negSign db "-" 
 	sumPrint db "Print de sumas:", 0xA, 0
 	restPrint db "Print de restas:", 0xA, 0
+	divPrint db "Print de division:", 0xA, 0
 	overflowMsg db "ERROR: Overflow", 0xA, 0
 	compare_num dq "18446744073709551615"					;indica el numero maximo a ingresar
 	printCont dq 0
+	divisionError db "Division por cero", 0xA, 0          
 	
 
 section .bss
@@ -48,6 +50,31 @@ _start:
 	mov qword [num2], rax		;carga el primer numero en num2
 
 	;------------------INICIO ITOA------------------------
+	;Division
+	
+	mov rax, divPrint
+	call _genericprint
+	
+	mov rax, [num1]
+	mov rbx, [num2]
+	cmp rax, rbx
+	jge mayor_num1 ;Salto si num1 es mayor o igual a num2
+	xchg eax, ebx
+	
+	mayor_num1:
+
+		;Caso para la division por cero 
+		cmp rbx, 0
+		je division_by_zero
+		
+		;resultado se guarda en rax (cociente)
+		xor rdx, rdx
+		div rbx
+		
+		mov [itoaNum], rax
+		call _processLoop
+		
+
 
 	;#SUMA
 	mov rax, sumPrint
@@ -57,7 +84,7 @@ _start:
 	jc _overflowDetected		;check de overflow
 	mov [itoaNum], rax		;inicio itoa suma
 	call _processLoop
-
+	
 	_continueProcess:
 
 	;#RESTA
@@ -71,6 +98,12 @@ _start:
 	cmp rax, rsi	
 	jge _resta ;Resta num2-num1
     jl _cambio_resta ;Resta num1-num2
+    
+    
+division_by_zero:
+		mov rax, divisionError
+		call _genericprint
+		call _finishCode
 
 _restaEspecial: 
 	sub rax, rsi ;Resta num2-num1
