@@ -14,51 +14,59 @@ section .data
 	sumPrint db "Print de sumas:", 0xA, 0
 	restPrint db "Print de restas:", 0xA, 0
 	overflowMsg db "ERROR: Overflow", 0xA, 0
+	startPrompt db "Que desea realizar? 1. suma 2. resta 3. division 4. multiplicacion 5.Finalizar Programa",0xA,0
 	compare_num dq "18446744073709551615"					;indica el numero maximo a ingresar
 	printCont dq 0
 	
+	
 
 section .bss
-	numString resq 13
+	numString resq 13 
 	num1 resq 13
 	num2 resq 13
 	length resb 1
-	buffer     resb 101   									;Buffer para almacenar la cadena de caracteres convertida
+	buffer  resb 101   									;Buffer para almacenar la cadena de caracteres convertida
 
 section .text
 
 ;------------------ MAIN ------------------------
 _start:
-	mov rax, text1
+	mov rax, startPrompt
 	call _genericprint
 	
-	call _getText			;Consigue el texto del usuario
+	call _getOption
 
+	cmp byte[numString], '1'
+	je _opSuma
 
-	mov qword [num1], rax		;carga el primer numero en num1
-	xor rax, rax			;reinicia rax
-	mov byte[numString], 0		;reinicia numString
-	
-	mov rax, text1   		;Hace print inicial
-	call _genericprint
-	
-	call _getText			;Consigue el texto del usuario
+	cmp byte[numString], '2'
+	je _opResta
 
-		
-	mov qword [num2], rax		;carga el primer numero en num2
+	cmp byte[numString], '3'
+	je _opDivision
 
-	;------------------INICIO ITOA------------------------
+	cmp byte[numString], '4'
+	je _opMultiplicacion
+
+	cmp byte[numString], '5'
+	je _finishCode
+
+_opSuma:
+	call _getUserInput
 
 	;#SUMA
 	mov rax, sumPrint
 	call _genericprint
 	mov rax, [num1]
-    add rax, [num2]			;Hace la suma
+    	add rax, [num2]			;Hace la suma
 	jc _overflowDetected		;check de overflow
 	mov [itoaNum], rax		;inicio itoa suma
 	call _processLoop
+	jmp _start
+	
 
-	_continueProcess:
+_opResta:
+	call _getUserInput
 
 	;#RESTA
 	mov rax, restPrint
@@ -70,7 +78,7 @@ _start:
 	mov rsi, [num1]
 	cmp rax, rsi	
 	jge _resta ;Resta num2-num1
-    jl _cambio_resta ;Resta num1-num2
+     	jl _cambio_resta ;Resta num1-num2
 
 _restaEspecial: 
 	sub rax, rsi ;Resta num2-num1
@@ -89,8 +97,7 @@ _resta:
 
 restaCont:
 	call _processLoop
-	
-	call _finishCode
+	jmp _start
 
 _cambio_restaEspecial:
 	sub rsi, rax ;Resta num1-num2
@@ -108,31 +115,38 @@ _cambio_resta:
 	mov [itoaNum], rsi ;inicio itoa resta
 	
 	jmp restaCont ;Se imprime el resultado de la resta
+
+_opDivision:
+	call _getUserInput
+	;PEGAR EL CODIGO DE UDS AQUI
+	jmp _start
 	
-	;------------------FIN ITOA---------------------------
-
-;-------------- FIN MAIN ------------------------
-
-
-_compare: 
-	cmp byte [flagSpCase], 1
-	je _testNegSpecialCase
-	js _testNeg
-
-	_testNegSpecialCase:
-		;call _finishError
-		test rax, rax		;realiza test a ver si el numero es negativo
-    		jns _makeNeg
-		js _exitFunction
+_opMultiplicacion:
+	call _getUserInput
+	;PEGAR EL CODIGO DE UDS AQUI
+	jmp _start
 	
-	_testNeg:
-		test rax, rax		;realiza test a ver si el numero es negativo 
-    		jns _exitFunction  	;si no es negativo salta a string directamente 
 
-	_makeNeg:
-		neg rax			;vuelve positivo el numero
-		mov byte[flagNegativo], 1	;indica que el numero es negativo
-		ret
+_getUserInput:	
+	
+	mov rax, text1
+	call _genericprint
+	call _getText			;Consigue el texto del usuario
+
+
+	mov byte[numString], 0		;reinicia numString
+	mov qword [num1], rax		;carga el primer numero en num1
+	xor rax, rax			;reinicia rax
+	mov byte[numString], 0		;reinicia numString
+	
+	mov rax, text1   		;Hace print inicial
+	call _genericprint
+	
+	call _getText			;Consigue el texto del usuario
+	mov qword [num2], rax		;carga el primer numero en num2
+
+	ret
+
 
 ;------------------ATOI---------------------------------------
 _AtoiStart:
@@ -238,45 +252,21 @@ divide_loop:
 	
 _lengthCheck:
     	xor rax, rax                  			;Clear registro de rax
-    	mov rdi, numString               			;carga la direccion de memoria de numString en rdi
+    	mov rdi, numString  
+	mov byte [length], 0		             	;carga la direccion de memoria de numString en rdi
     
 length_loop:
     	cmp byte [rdi + rax], 0      			;observa si tiene terminacion nula
     	je length_done                 
     	inc rax                       			;Incrementa contador
+	inc byte [length]
     	jmp length_loop                			;loop
 
 length_done:
 	cmp rax, 21
-	jg _finishError					;error si es mas largo a 21
-	cmp rax, 21
-	je _startNumCheck				;continua
+	jg _finishError					;error si es mas largo a 21	
 	ret
 
-;---#CALCULA SI EL NUMERO ES MENOR O IGUAL A 18446744073709551615
-
-_startNumCheck:
-    	mov rsi, numString + 19				;Apunta al ultimo caracter del numero ingresado (se asume que siempre son 20 caracteres)
-    	mov rdi, compare_num +19			;Apunta al ultimo caracter del numero a comparar (se asume que siempre son 20 caracteres)
-
-compare_loop:
-    	movzx rax, byte [rsi]             		;Carga el caracter del numString
-    	movzx rbx, byte [rdi]             		;Carga el caracter del compare_num
-    
-    	cmp rax, rbx               			;Compara los caracteres
-    	jg _finishError            			;Si el caracter del numString es mayor, da error
-    	jl end_of_strings          			;Si el caracter del numString es mayor, finaliza
-    
-    	sub rsi, 1                 			;Se aumenta al caracter que se esta apuntando
-    	sub rdi, 1                 			;Se aumenta al caracter que se esta apuntando
-    
-    	cmp rsi, -1                			;Chequea si se finalizo de comparar
-    	jl end_of_strings          			;finaliza loop
-    
-    	jmp compare_loop	   			;loop
-
-end_of_strings:
-    	ret
 
 ;--------------END CHEQUEO DE ERRORES------------------------
 
@@ -399,6 +389,18 @@ _getText:			;obtiene el texto
 	call _lengthCheck
 	call _AtoiStart
 	ret
+	
+_getOption:
+	mov rax, 0
+	mov rdi, 0
+	mov rsi, numString
+	mov rdx, 101
+	syscall 
+	call _lengthCheck
+	cmp byte [length], 2
+	je _exitFunction
+	jmp _finishError
+	
 
 _printNeg:
 	mov rax, 1
@@ -413,7 +415,6 @@ _overflowDetected:			;check de overflow
 	mov rax, overflowMsg
 	mov rdx, 16
 	call _genericprint
-	jmp _continueProcess
 
 
 ;---------------- END PRINTS --------------------
