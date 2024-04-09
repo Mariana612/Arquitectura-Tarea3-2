@@ -15,10 +15,9 @@ section .data
 	restPrint db "Print de restas:", 0xA, 0
 	divPrint db "Print de division:", 0xA, 0
 	overflowMsg db "ERROR: Overflow", 0xA, 0
-	startPrompt db "Que desea realizar? 1. suma 2. resta 3. division 4. multiplicacion 5.Finalizar Programa",0xA,0
-	compare_num dq "18446744073709551615"					;indica el numero maximo a ingresar
+	startPrompt db "Escoja una Opcion: 1. suma 2. resta 3. division 4. multiplicacion 5.Finalizar Programa",0xA,0
 	printCont dq 0
-	divisionError db "Division por cero", 0xA, 0          
+	divisionError db "Division por cero, desea continuar?", 0xA, 0          
 	
 	
 
@@ -148,7 +147,7 @@ _opDivision:
 division_by_zero:
 	mov rax, divisionError
 	call _genericprint
-	call _finishCode
+	jmp _start
 	
 _opMultiplicacion:
 	call _getUserInput
@@ -442,8 +441,8 @@ _printNeg:
 
 _overflowDetected:			;check de overflow
 	mov rax, overflowMsg
-	mov rdx, 16
 	call _genericprint
+	jmp _start
 
 
 ;---------------- END PRINTS --------------------
@@ -452,6 +451,7 @@ _overflowDetected:			;check de overflow
 _finishError:			;finaliza codigo
 	mov rax, errorCode
 	call _genericprint
+	jmp _start
 
 _finishCode:			;finaliza codigo
 	mov rax, 60
