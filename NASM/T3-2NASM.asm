@@ -7,6 +7,8 @@ section .data
 	digitos db '0123456789ABCDEF'     						;Caracteres que representan los dígitos en base 16
 	errorCode db "Error: Ingrese un numero valido", 0xA, 0
 	itoaNum dq 0											;numero para procesar en itoa (resultados de suma y resta)
+	itoaNumHigh dq 0
+	itoaNumLow dq 0
 	numBase dq 2											;numero utilizado para la base del itoa
 	flagNegativo db 0										;flag que indica que el numero es negativo
 	flagSpCase db 0											;flag del caso especial de la resta
@@ -18,7 +20,11 @@ section .data
 	startPrompt db "Escoja una Opcion: 1. suma 2. resta 3. division 4. multiplicacion 5.Finalizar Programa",0xA,0
 	printCont dq 0
 	divisionError db "Division por cero, desea continuar?", 0xA, 0          
-	
+	mulPrint db "Print de multiplicaciones:", 0xA, 0
+	compare_num dq "18446744073709551615"					;indica el numero maximo a ingresar
+	mul_strHigh db "0000000000000000000000000000000000000000000000000000000000000000", 0
+	mul_strLow db  "0000000000000000000000000000000000000000000000000000000000000000", 10, 0
+	espacio db 10
 	
 
 section .bss
@@ -26,12 +32,13 @@ section .bss
 	num1 resq 13
 	num2 resq 13
 	length resb 1
-	buffer  resb 101   									;Buffer para almacenar la cadena de caracteres convertida
+	buffer resb 101   									;Buffer para almacenar la cadena de caracteres convertida
 
 section .text
 
 ;------------------ MAIN ------------------------
 _start:
+	
 	mov rax, startPrompt
 	call _genericprint
 	
@@ -52,7 +59,11 @@ _start:
 
 	cmp byte[numString], '5'
 	je _finishCode
+		
+	mov qword [num2], rax		;carga el primer numero en num2
 
+	;------------------INICIO ------------------------
+	
 _opSuma:
 	call _getUserInput
 
@@ -60,7 +71,7 @@ _opSuma:
 	mov rax, sumPrint
 	call _genericprint
 	mov rax, [num1]
-    	add rax, [num2]			;Hace la suma
+    add rax, [num2]			;Hace la suma
 	jc _overflowDetected		;check de overflow
 	mov [itoaNum], rax		;inicio itoa suma
 	call _processLoop
@@ -78,8 +89,8 @@ _opResta:
 	mov rax, [num2]
 	mov rsi, [num1]
 	cmp rax, rsi	
-	jge _resta ;Resta num2-num1
-    jl _cambio_resta ;Resta num1-num2
+	jg _resta ;Resta num2-num1
+    jle _cambio_resta ;Resta num1-num2
 
 _restaEspecial: 
 	sub rax, rsi ;Resta num2-num1
@@ -89,6 +100,7 @@ _restaEspecial:
 
 _resta:
 	;Si el número es mayor que cierto dígito, se debe negar el resultado
+	mov byte[flagNegativo], 1	;indica que el numero es negativo
 	mov r10, 9900000000000000000
 	cmp rsi, r10
 	jae _restaEspecial
@@ -99,6 +111,8 @@ _resta:
 restaCont:
 	call _processLoop
 	jmp _start
+	call _processLoop
+	call _finishCode
 
 _cambio_restaEspecial:
 	sub rsi, rax ;Resta num1-num2
@@ -120,7 +134,7 @@ _cambio_resta:
 _opDivision:
 	call _getUserInput
 		
-	;#Division
+	;#DIVISIÓN
 	mov rax, divPrint
 	call _genericprint
 	
@@ -151,9 +165,57 @@ division_by_zero:
 	
 _opMultiplicacion:
 	call _getUserInput
-	;PEGAR EL CODIGO DE UDS AQUI
+	
+	;#MULTIPLICACIÓN
+	mov rax, mulPrint
+	call _genericprint
+	call _specialCaseSub		;realiza chequeo de casos especiales (numeros de len 20)
+	mov rax, [num1]
+	mov rsi, [num2]
+    mul rsi			;Hace la multiplicación
+    jc mulEspecial
+    mov [itoaNum], rax		;inicio itoa multiplicación
+	call _processLoop
+	
 	jmp _start
 	
+	mulEspecial:
+		push rax
+		mov [itoaNumHigh], rdx		;inicio itoa multiplicación
+		mov rdi, mul_strHigh
+		mov rsi, [itoaNumHigh]
+		call _startItoa_Mul
+	
+		mov rax, mul_strHigh
+		call _genericprint
+    
+		pop rax
+		mov [itoaNumLow], rax		;inicio itoa multiplicación
+		mov rdi, mul_strLow
+		mov rsi, [itoaNumLow]
+		call _startItoa_Mul
+	
+		mov rax, mul_strLow
+		call _genericprint
+	
+	_processLoop_mul:
+		cmp qword [numBase], 16
+		jg finish
+
+	_continueLoop_mul:
+		mov rdi, buffer
+		mov rcx, 44    ;Se puede tener max 21 caracteres
+		mov al, 0      ;Se limpia con NULL bytes
+		rep stosb      ;Se llena la memoria con NULL bytes
+    
+		mov rdi, buffer
+		call _startItoa_Mul
+	
+		inc qword [numBase]
+		jmp _processLoop_mul
+
+	finish:	
+		jmp _start
 
 _getUserInput:	
 	
@@ -174,8 +236,6 @@ _getUserInput:
 	mov qword [num2], rax		;carga el primer numero en num2
 
 	ret
-
-
 ;------------------ATOI---------------------------------------
 _AtoiStart:
 	xor rbx, rbx			;reinicia el registro
@@ -295,6 +355,9 @@ length_done:
 	jg _finishError					;error si es mas largo a 21	
 	ret
 
+	jg _finishError					;error si es mas largo a 21
+
+	ret
 
 ;--------------END CHEQUEO DE ERRORES------------------------
 
@@ -328,10 +391,10 @@ _startItoa:
     	inc r8
     
     	; Termina la cadena con null
-   	 mov byte [buffer + r8], 0
+		mov byte [buffer + r8], 0
 
-   	mov rax , buffer
-   	jmp _genericprint
+		mov rax, buffer
+		jmp _genericprint
 
 ; Definición de la función ITOA
 itoa:
@@ -353,7 +416,6 @@ itoa:
 .lower_base_digits:
     	; Maneja bases menores o iguales a 10
     	add dl, '0'    ; Convierte el resto a un carácter ASCII
-    	jmp .store_digit
     
 .store_digit:
     	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
@@ -364,26 +426,201 @@ itoa:
     	; Invierte la cadena
     	mov rdx, rdi
     	lea rcx, [rdi + rsi - 1]
-    	jmp .reversetest
+    	jmp reversetest
     
-.reverseloop:
-   	mov al, [rdx]
+reverseloop:
+		mov al, [rdx]
     	mov ah, [rcx]
     	mov [rcx], al
     	mov [rdx], ah
     	inc rdx
     	dec rcx
     
-.reversetest:
+reversetest:
     	cmp rdx, rcx
-    	jl .reverseloop
+    	jl reverseloop
     
     	mov rax, rsi  ; Devuelve la longitud de la cadena
     	ret
 
-;----------------- END ITOA -------------------
 
-;-----------------Print Generico---------------
+;ITOA multiplicación
+
+_startItoa_Mul:
+    	;Llama a ITOA para convertir n a cadena
+    	mov rbx, [numBase]		  ;Establece la base
+    	call itoa_mul
+
+		ret
+
+; Definición de la función ITOA
+itoa_mul:
+    	mov rax, rsi    				; Mueve el número a convertir (en rsi) a rax
+    	mov rsi, 0      				; Cantidad de digitos del string
+    	mov r10, rbx   					; Usa rbx como la base del número a convertir
+    	mov r8, 0 ;Contador para bases low
+    	
+    	cmp r10, 2
+    	je inicio_binario
+    	
+    	cmp r10, 8
+    	je base_8
+    	
+    	cmp r10, 16
+    	je base_16
+    	
+    	ret
+
+;BASE 8 - MULTIPLICACIÓN
+base_8:
+	mov r9, [itoaNumLow]
+    mov r13, [itoaNumHigh]
+
+loop_base8_low:
+	mov r11, 7
+	and r11, r9
+	shr r9, 3
+	
+    mov dl, byte [digitos + r11]
+
+store_digit_8_low:
+    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
+    inc rsi              ; Se mueve a la siguiente posición en el buffer
+    inc r8
+    cmp r8, 21
+	je _frontera8
+		
+	jmp loop_base8_low
+
+_frontera8:
+    mov r11, 1b
+	and r11, r9
+	
+	mov r12, 3
+	and r12, r13
+	shl r12, 1
+	or r12, r11
+	
+	mov dl, byte [digitos + r12]
+	
+	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
+    inc rsi              ; Se mueve a la siguiente posición en el buffer
+
+high_parte:	
+	shr r13, 2
+	mov r8, 0 ;Contador para bases high
+
+loop_base8_high:
+	mov r11, 7
+	and r11, r13
+	shr r13, 3
+	
+    mov dl, byte [digitos + r11]
+
+store_digit_8_high:
+    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
+    inc rsi              ; Se mueve a la siguiente posición en el buffer
+    inc r8
+    cmp r8, 21
+	je final_base_8
+		
+	jmp loop_base8_high	
+
+final_base_8:
+	mov rdx, rdi
+    lea rcx, [rdi + rsi - 1]
+    call reversetest
+    
+    mov rax, buffer
+	call _genericprint
+    
+    mov rax, 1          ; syscall number for sys_write
+    mov rdi, 1          ; file descriptor 1 (stdout)
+    mov rsi, espacio    ; pointer to the newline character
+    mov rdx, 1          ; length of the string (1 byte)
+    syscall
+    
+	ret
+	
+;BASE 16 - MULTIPLICACIÓN
+base_16:
+	mov r9, [itoaNumLow]
+    mov r13, [itoaNumHigh]
+
+loop_base16_low:
+	mov r11, 0xf
+	and r11, r9
+	shr r9, 4
+	
+    mov dl, byte [digitos + r11]
+
+store_digit_16_low:
+    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
+    inc rsi              ; Se mueve a la siguiente posición en el buffer
+    inc r8
+    cmp r8, 16
+	je _inicio_base_16
+		
+	jmp loop_base16_low
+
+_inicio_base_16:
+	mov r8, 0 ;Contador para bases high
+
+loop_base16_high:
+	mov r11, 0xf
+	and r11, r13
+	shr r13, 4
+	
+    mov dl, byte [digitos + r11]
+
+store_digit_16_high:
+    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
+    inc rsi              ; Se mueve a la siguiente posición en el buffer
+    inc r8
+    cmp r8, 16
+	je final_base_16
+		
+	jmp loop_base16_high	
+
+final_base_16:
+	mov rdx, rdi
+    lea rcx, [rdi + rsi - 1]
+    call reversetest
+    
+    mov rax, buffer
+	call _genericprint
+	
+    mov rax, 1          ; syscall number for sys_write
+    mov rdi, 1          ; file descriptor 1 (stdout)
+    mov rsi, espacio    ; pointer to the newline character
+    mov rdx, 1          ; length of the string (1 byte)
+    syscall
+    
+	ret
+
+;BASE 2 - MULTIPLICACIÓN	
+inicio_binario:
+		mov rsi, 63      				; Cantidad de digitos del string
+		
+loop_mul:
+		xor rdx, rdx       				; Limpia rdx para la división
+    	div r10            				; Divide rax por rbx
+    	
+    	movzx rdx, dl
+    
+store_digit_mul:
+		mov dl, byte [digitos + rdx]
+    	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
+    	dec rsi              ; Se mueve a la siguiente posición en el buffer
+    	cmp rax, 0           ; Verifica si el cociente es cero
+    	jg loop_mul          ; Si no es cero, continúa el bucle
+    	
+    	; Invierte la cadena
+    	mov rdx, rdi
+    	lea rcx, [rdi + rsi - 1]
+    	jmp reversetest
+
+;----------------- PRINTS ---------------------
 
 _genericprint:
 	mov qword [printCont], 0		;coloca rdx en 0 (contador)
@@ -404,8 +641,6 @@ _endPrint:
 	pop rsi			;texto
 	syscall
 	ret
-
-;----------------- PRINTS ---------------------
 
 _getText:			;obtiene el texto
 	mov rax, 0
