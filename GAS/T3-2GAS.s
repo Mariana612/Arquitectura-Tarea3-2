@@ -7,6 +7,9 @@
 	text1:		.asciz "Ingrese un numero\n"
 	digitos:	.asciz "0123456789ABCDEF"    	# Caracteres que representan los dígitos en base 16
 	errorCode:	.asciz "Error: Ingrese un numero valido\n"
+	errorInvalidInput: .asciz "Error: Numero invalido\n"
+	errorLengthChar: .asciz "Error: Mas caracteres de lo espererado\n"
+	getOptionError: .asciz "Error: Al conseguir la opcion\n"
 	itoaNum:	.quad 0							# numero para procesar en itoa (resultados de suma y resta)
 	itoaNumHigh:    .quad 0
 	itoaNumLow:     .quad 0
@@ -257,15 +260,19 @@ check_input:
 	cmp $0xA, %rax
 	je input_valid					# Final del string alcanzado
 	cmp $'0', %rax
-	jb _finishError					# Revisa caracteres no imprimibles
+	jb input_invalid					# Revisa caracteres no imprimibles
 	cmp $'9', %rax
-	ja _finishError					# Revisa caracteres no imprimibles
+	ja input_invalid					# Revisa caracteres no imprimibles
 	inc %rcx						# Mover al siguiente byte
 	jmp check_input
 
 input_valid:
 	ret
 
+input_invalid:
+	movq $errorInvalidInput, %rax
+	call _genericprint
+	jmp _start
 
 _specialCaseSub:
 	movq num1(%rip), %rax
@@ -314,9 +321,13 @@ length_loop:
 
 length_done:
 	cmp $21, %rax
-	jg _finishError				# Error si es más largo a 21
+	jg errorLength			# Error si es más largo a 21
 	ret
-
+	
+errorLength:
+	movq $errorLengthChar, %rax
+	call _genericprint
+	jmp _start
 
 # ----------------- ATOI ----------------------------------
 
@@ -651,21 +662,42 @@ _getText:
     leaq num1(%rip), %rsi
     movq $101, %rdx
     syscall
+    
     call _inputCheck                      # se asegura de que se ingrese unicamente numeros
+    jne input_invalid
+    
+    call _clearBuffer
     call _lengthCheck
+    
+    
     call _AtoiStart
     ret
+ 
     
 _getOption:
 	movq $0, %rax
 	movq $0, %rdi
 	leaq numString(%rip), %rsi
 	movq $101, %rdx
-	syscall
+	call _clearBuffer
 	call _lengthCheck
-	cmpb $2, length(%rip)
-	je _exitFunction
-	jmp _finishError
+	#cmpb $1, length(%rip)  	# Verificar si la longitud del string es igual a 1
+	#jne errorGetOption		# Saltar al manejo de error si la longitud no es 1
+	jmp _exitFunction		# Saltar a la salida normal si la longitud es 1
+
+errorGetOption:
+	movq $getOptionError, %rax
+	call _genericprint
+	jmp _start
+
+_clearBuffer:
+    movq $0, %rax          # System call number for sys_read
+    movq $0, %rdi          # File descriptor 0 (stdin)
+    leaq buffer(%rip), %rsi    # Buffer para almacenar la entrada
+    movq $100, %rdx        # Longitud del buffer
+    syscall
+
+    ret
 
 _printNeg:
 	movq $1, %rax
