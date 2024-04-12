@@ -611,31 +611,46 @@ final_base_16:
     mov rax, buffer
 	call _genericprint ;Imprimir el string
 	
+<<<<<<< Updated upstream
     ;Imprimir un salto de línea
     mov rax, 1
     mov rdi, 1          
     mov rsi, espacio   
     mov rdx, 1         
+=======
+    mov rax, 1          # syscall number for sys_write
+    mov rdi, 1          # file descriptor 1 (stdout)
+    mov rsi, espacio    # pointer to the newline character
+    mov rdx, 1          # length of the string (1 byte)
+>>>>>>> Stashed changes
     syscall
     
 	ret
 
 ;BASE 2 - MULTIPLICACIÓN	
 inicio_binario:
-		mov rsi, 63      				; Cantidad de digitos del string
+		mov rsi, 63      				# Cantidad de digitos del string
 		
 loop_mul:
-		xor rdx, rdx       				; Limpia rdx para la división
-    	div r10            				; Divide rax por rbx
+		xor rdx, rdx       				# Limpia rdx para la división
+    	div r10            				# Divide rax por rbx
     	
     	movzx rdx, dl
     
 store_digit_mul:
+<<<<<<< Updated upstream
 		mov dl, byte [digitos + rdx] ;Se busca el dígito obtenido en el look up table
     	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
     	dec rsi              ; Se mueve a la siguiente posición en el buffer
     	cmp rax, 0           ; Verifica si el cociente es cero
     	jg loop_mul          ; Si no es cero, continúa el bucle
+=======
+		mov dl, byte [digitos + rdx]
+    	mov [rdi + rsi], dl  # Almacena el carácter en el buffer
+    	dec rsi              # Se mueve a la siguiente posición en el buffer
+    	cmp rax, 0           # Verifica si el cociente es cero
+    	jg loop_mul          # Si no es cero, continúa el bucle
+>>>>>>> Stashed changes
     	
     	;Invierte la cadena
     	mov rdx, rdi
