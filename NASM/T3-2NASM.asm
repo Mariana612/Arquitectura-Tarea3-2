@@ -92,7 +92,7 @@ _opResta:
 	jg _resta ;Resta num2-num1
     jle _cambio_resta ;Resta num1-num2
 
-_restaEspecial: 
+_restaEspecial:
 	sub rax, rsi ;Resta num2-num1
 	neg rax ;Negar resultado
 	mov [itoaNum], rax ;inicio itoa resta
@@ -100,21 +100,23 @@ _restaEspecial:
 
 _resta:
 	;Si el número es mayor que cierto dígito, se debe negar el resultado
-	mov byte[flagNegativo], 1	;indica que el numero es negativo
 	mov r10, 9900000000000000000
 	cmp rsi, r10
 	jae _restaEspecial
     
+	mov byte[flagNegativo], 1	;indica que el numero es negativo
 	sub rax, rsi ;Resta num2-num1
 	mov [itoaNum], rax ;inicio itoa resta
 
 restaCont:
 	call _processLoop
+	mov byte[flagNegativo], 0
 	jmp _start
 	call _processLoop
 	call _finishCode
 
 _cambio_restaEspecial:
+	mov byte[flagNegativo], 1	;indica que el numero es negativo
 	sub rsi, rax ;Resta num1-num2
 	neg rsi ;Negar resultado
 	mov [itoaNum], rsi ;inicio itoa resta               
@@ -368,9 +370,29 @@ length_done:
 _processLoop:
 	cmp qword [numBase],17
 	je _exitFunction
+	
 	cmp byte[flagNegativo], 1				;se asegura de que el primer numero sea o no negativo
 	je _printNeg					;realiza print del simbolo negativo
+	
+_verificarBases:
+	cmp qword [numBase],17
+	je _exitFunction
 
+	cmp qword [numBase], 2
+	je _continueLoop
+	
+	cmp qword [numBase], 8
+	je _continueLoop
+	
+	cmp qword [numBase], 10
+	je _continueLoop
+	
+	cmp qword [numBase], 16
+	je _continueLoop
+	
+	inc qword [numBase]
+	jmp _verificarBases
+	
 _continueLoop:
 	call _startItoa
 	inc qword [numBase]
@@ -445,9 +467,7 @@ reversetest:
 
 
 ;ITOA multiplicación
-
 _startItoa_Mul:
-    	;Llama a ITOA para convertir n a cadena
     	mov rbx, [numBase]		  ;Establece la base
     	call itoa_mul
 
@@ -460,68 +480,68 @@ itoa_mul:
     	mov r10, rbx   					; Usa rbx como la base del número a convertir
     	mov r8, 0 ;Contador para bases low
     	
-    	cmp r10, 2
+    	cmp r10, 2 ;Para convertir el número a binario
     	je inicio_binario
     	
-    	cmp r10, 8
+    	cmp r10, 8 ;Para convertir el número a octal
     	je base_8
     	
-    	cmp r10, 16
+    	cmp r10, 16 ;Para convertir el número a hexadecimal
     	je base_16
     	
     	ret
 
 ;BASE 8 - MULTIPLICACIÓN
 base_8:
-	mov r9, [itoaNumLow]
-    mov r13, [itoaNumHigh]
+	mov r9, [itoaNumLow] ;Los bits menos significativos
+    mov r13, [itoaNumHigh] ;Los bits más significativos
 
 loop_base8_low:
-	mov r11, 7
-	and r11, r9
-	shr r9, 3
+	mov r11, 7 
+	and r11, r9 ;Enmascaramiento de los bits menos significativos para obtener los tres menores
+	shr r9, 3 ;Se mueven los bits 3 veces a la derecha
 	
-    mov dl, byte [digitos + r11]
+    mov dl, byte [digitos + r11] ;Se busca el dígito obtenido en el look up table
 
 store_digit_8_low:
-    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
-    inc rsi              ; Se mueve a la siguiente posición en el buffer
-    inc r8
-    cmp r8, 21
+    mov [rdi + rsi], dl  ;Almacena el caracter en el string
+    inc rsi              ;Se mueve a la siguiente posición del string
+    inc r8 ;Se incrementa el contador
+    cmp r8, 21 ;Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
 	je _frontera8
 		
 	jmp loop_base8_low
 
 _frontera8:
-    mov r11, 1b
-	and r11, r9
+    mov r11, 1
+	and r11, r9 ;Se obtiene el bit que queda del grupo de bits menos significativos
 	
 	mov r12, 3
-	and r12, r13
-	shl r12, 1
-	or r12, r11
+	and r12, r13 ;Enmascaramiento de los bits más significativos para obtener los dos menores
+	shl r12, 1 ;Se mueven los bits para hacer espacio para lo que contiene el r11 
+	or r12, r11 ;Se juntan el r12 y r11
 	
-	mov dl, byte [digitos + r12]
+	mov dl, byte [digitos + r12] ;Se busca el dígito obtenido en el look up table
 	
-	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
-    inc rsi              ; Se mueve a la siguiente posición en el buffer
+	mov [rdi + rsi], dl  ;Almacena el caracter en el string
+    inc rsi              ;Se mueve a la siguiente posición del string
 
 high_parte:	
-	shr r13, 2
+	shr r13, 2 ;Se mueven los bits 2 veces a la derecha para descartar los utilizados en la frontera
 	mov r8, 0 ;Contador para bases high
 
 loop_base8_high:
 	mov r11, 7
-	and r11, r13
-	shr r13, 3
+	and r11, r13 ;Enmascaramiento de los bits más significativos para obtener los tres menores
+	shr r13, 3 ;Se mueven los bits 3 veces a la derecha
 	
-    mov dl, byte [digitos + r11]
+    mov dl, byte [digitos + r11] ;Se busca el dígito obtenido en el look up table
 
 store_digit_8_high:
-    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
-    inc rsi              ; Se mueve a la siguiente posición en el buffer
-    inc r8
-    cmp r8, 21
+    mov [rdi + rsi], dl  ;Almacena el caracter en el string
+    inc rsi              ;Se mueve a la siguiente posición del string
+    inc r8  ;Se incrementa el contador
+    cmp r8, 21 ;Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
 	je final_base_8
 		
 	jmp loop_base8_high	
@@ -529,36 +549,37 @@ store_digit_8_high:
 final_base_8:
 	mov rdx, rdi
     lea rcx, [rdi + rsi - 1]
-    call reversetest
+    call reversetest ;Darle vuelta al string
     
     mov rax, buffer
-	call _genericprint
+	call _genericprint ;Imprimir el string
     
-    mov rax, 1          ; syscall number for sys_write
-    mov rdi, 1          ; file descriptor 1 (stdout)
-    mov rsi, espacio    ; pointer to the newline character
-    mov rdx, 1          ; length of the string (1 byte)
+    ;Imprimir un salto de línea
+    mov rax, 1          
+    mov rdi, 1          
+    mov rsi, espacio    
+    mov rdx, 1          
     syscall
     
 	ret
 	
 ;BASE 16 - MULTIPLICACIÓN
 base_16:
-	mov r9, [itoaNumLow]
-    mov r13, [itoaNumHigh]
+	mov r9, [itoaNumLow] ;Los bits menos significativos
+    mov r13, [itoaNumHigh] ;Los bits más significativos
 
 loop_base16_low:
 	mov r11, 0xf
-	and r11, r9
-	shr r9, 4
+	and r11, r9 ;Enmascaramiento de los bits menos significativos para obtener los cuatro menores
+	shr r9, 4 ;Se mueven los bits 4 veces a la derecha
 	
-    mov dl, byte [digitos + r11]
+    mov dl, byte [digitos + r11] ;Se busca el dígito obtenido en el look up table
 
 store_digit_16_low:
-    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
-    inc rsi              ; Se mueve a la siguiente posición en el buffer
-    inc r8
-    cmp r8, 16
+    mov [rdi + rsi], dl  ;Almacena el caracter en el string
+    inc rsi              ;Se mueve a la siguiente posición del string
+    inc r8 ;Se incrementa el contador
+    cmp r8, 16 ;Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
 	je _inicio_base_16
 		
 	jmp loop_base16_low
@@ -568,16 +589,16 @@ _inicio_base_16:
 
 loop_base16_high:
 	mov r11, 0xf
-	and r11, r13
-	shr r13, 4
+	and r11, r13 ;Enmascaramiento de los bits menos significativos para obtener los cuatro menores
+	shr r13, 4 ;Se mueven los bits 4 veces a la derecha
 	
-    mov dl, byte [digitos + r11]
+    mov dl, byte [digitos + r11] ;Se busca el dígito obtenido en el look up table
 
 store_digit_16_high:
-    mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
-    inc rsi              ; Se mueve a la siguiente posición en el buffer
-    inc r8
-    cmp r8, 16
+    mov [rdi + rsi], dl  ;Almacena el caracter en el string
+    inc rsi             ;Se mueve a la siguiente posición del string
+    inc r8 ;Se incrementa el contador
+    cmp r8, 16 ;Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
 	je final_base_16
 		
 	jmp loop_base16_high	
@@ -585,15 +606,16 @@ store_digit_16_high:
 final_base_16:
 	mov rdx, rdi
     lea rcx, [rdi + rsi - 1]
-    call reversetest
+    call reversetest ;Darle vuelta al string
     
     mov rax, buffer
-	call _genericprint
+	call _genericprint ;Imprimir el string
 	
-    mov rax, 1          ; syscall number for sys_write
-    mov rdi, 1          ; file descriptor 1 (stdout)
-    mov rsi, espacio    ; pointer to the newline character
-    mov rdx, 1          ; length of the string (1 byte)
+    ;Imprimir un salto de línea
+    mov rax, 1
+    mov rdi, 1          
+    mov rsi, espacio   
+    mov rdx, 1         
     syscall
     
 	ret
@@ -609,13 +631,13 @@ loop_mul:
     	movzx rdx, dl
     
 store_digit_mul:
-		mov dl, byte [digitos + rdx]
+		mov dl, byte [digitos + rdx] ;Se busca el dígito obtenido en el look up table
     	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
     	dec rsi              ; Se mueve a la siguiente posición en el buffer
     	cmp rax, 0           ; Verifica si el cociente es cero
     	jg loop_mul          ; Si no es cero, continúa el bucle
     	
-    	; Invierte la cadena
+    	;Invierte la cadena
     	mov rdx, rdi
     	lea rcx, [rdi + rsi - 1]
     	jmp reversetest
@@ -671,7 +693,7 @@ _printNeg:
 	mov rsi, negSign
 	mov rdx, 1 
 	syscall
-	jmp _continueLoop
+	jmp _verificarBases
 
 
 _overflowDetected:			;check de overflow
