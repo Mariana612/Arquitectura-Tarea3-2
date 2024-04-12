@@ -5,7 +5,7 @@ global _start
 section .data
 	text1 db "Ingrese un numero", 0xA, 0 					
 	digitos db '0123456789ABCDEF'     						;Caracteres que representan los dígitos en base 16
-	errorCode db "Error: Ingrese un numero valido", 0xA, 0
+	errorCode db "ERROR: Ingrese un numero valido", 0xA, 0
 	itoaNum dq 0											;numero para procesar en itoa (resultados de suma y resta)
 	itoaNumHigh dq 0
 	itoaNumLow dq 0
@@ -19,7 +19,7 @@ section .data
 	overflowMsg db "ERROR: Overflow", 0xA, 0
 	startPrompt db "Escoja una Opcion: 1. suma 2. resta 3. division 4. multiplicacion 5.Finalizar Programa",0xA,0
 	printCont dq 0
-	divisionError db "Division por cero, desea continuar?", 0xA, 0          
+	divisionError db "ERROR: Division por cero.", 0xA, 0          
 	mulPrint db "Print de multiplicaciones:", 0xA, 0
 	compare_num dq "18446744073709551615"					;indica el numero maximo a ingresar
 	mul_strHigh db "0000000000000000000000000000000000000000000000000000000000000000", 0
@@ -38,12 +38,13 @@ section .text
 
 ;------------------ MAIN ------------------------
 _start:
-	
+	call _cleanRegisters
 	mov rax, startPrompt
 	call _genericprint
 	
 	call _getOption
-	mov qword [numBase],2
+
+	;mov qword [numBase],2
 
 	cmp byte[numString], '1'
 	je _opSuma
@@ -59,8 +60,24 @@ _start:
 
 	cmp byte[numString], '5'
 	je _finishCode
-		
-	mov qword [num2], rax		;carga el primer numero en num2
+	
+	call _cleanRegisters
+	jmp _start
+
+	;------------------INICIO ------------------------
+
+_cleanRegisters:
+	mov rdi, length
+	mov rcx, 101    ;Se puede tener max 21 caracteres
+	mov al, 0      ;Se limpia con NULL bytes
+	rep stosb      ;Se llena la memoria con NULL bytes
+
+	mov rdi, numString
+	mov rcx, 104    ;Se puede tener max 21 caracteres
+	mov al, 0      ;Se limpia con NULL bytes
+	rep stosb      ;Se llena la memoria con NULL bytes
+
+	ret
 
 	;------------------INICIO ------------------------
 	
@@ -68,14 +85,16 @@ _opSuma:
 	call _getUserInput
 
 	;#SUMA
+	mov rax, [num1]
+    	add rax, [num2]			;Hace la suma
+	jc _overflowDetected		;check de overflow
+
+	mov [itoaNum], rax		;inicio itoa suma
 	mov rax, sumPrint
 	call _genericprint
-	mov rax, [num1]
-    add rax, [num2]			;Hace la suma
-	jc _overflowDetected		;check de overflow
-	mov [itoaNum], rax		;inicio itoa suma
+
 	call _processLoop
-	jmp _start
+	jmp _finishCode
 	
 
 _opResta:
@@ -90,7 +109,7 @@ _opResta:
 	mov rsi, [num1]
 	cmp rax, rsi	
 	jg _resta ;Resta num2-num1
-    jle _cambio_resta ;Resta num1-num2
+    	jle _cambio_resta ;Resta num1-num2
 
 _restaEspecial:
 	sub rax, rsi ;Resta num2-num1
@@ -111,7 +130,7 @@ _resta:
 restaCont:
 	call _processLoop
 	mov byte[flagNegativo], 0
-	jmp _start
+	jmp _finishCode
 	call _processLoop
 	call _finishCode
 
@@ -158,12 +177,12 @@ _opDivision:
 		mov [itoaNum], rax
 		call _processLoop
 
-	jmp _start
+	jmp _finishCode
 
 division_by_zero:
 	mov rax, divisionError
 	call _genericprint
-	jmp _start
+	jmp _finishCode
 	
 _opMultiplicacion:
 	call _getUserInput
@@ -172,6 +191,7 @@ _opMultiplicacion:
 	mov rax, mulPrint
 	call _genericprint
 	call _specialCaseSub		;realiza chequeo de casos especiales (numeros de len 20)
+	
 	mov rax, [num1]
 	mov rsi, [num2]
     mul rsi			;Hace la multiplicación
@@ -357,10 +377,6 @@ length_done:
 	jg _finishError					;error si es mas largo a 21	
 	ret
 
-	jg _finishError					;error si es mas largo a 21
-
-	ret
-
 ;--------------END CHEQUEO DE ERRORES------------------------
 
 ;--------------ITOA -----------------------------------------
@@ -375,9 +391,6 @@ _processLoop:
 	je _printNeg					;realiza print del simbolo negativo
 	
 _verificarBases:
-	cmp qword [numBase],17
-	je _exitFunction
-
 	cmp qword [numBase], 2
 	je _continueLoop
 	
@@ -611,47 +624,34 @@ final_base_16:
     mov rax, buffer
 	call _genericprint ;Imprimir el string
 	
-<<<<<<< Updated upstream
-    ;Imprimir un salto de línea
-    mov rax, 1
-    mov rdi, 1          
-    mov rsi, espacio   
-    mov rdx, 1         
-=======
-    mov rax, 1          # syscall number for sys_write
-    mov rdi, 1          # file descriptor 1 (stdout)
-    mov rsi, espacio    # pointer to the newline character
-    mov rdx, 1          # length of the string (1 byte)
->>>>>>> Stashed changes
+
+    mov rax, 1          ;syscall number for sys_write
+    mov rdi, 1          ;file descriptor 1 (stdout)
+    mov rsi, espacio    ;pointer to the newline character
+    mov rdx, 1          ;length of the string (1 byte)
+
     syscall
     
 	ret
 
 ;BASE 2 - MULTIPLICACIÓN	
 inicio_binario:
-		mov rsi, 63      				# Cantidad de digitos del string
+		mov rsi, 63      			;Cantidad de digitos del string
 		
 loop_mul:
-		xor rdx, rdx       				# Limpia rdx para la división
-    	div r10            				# Divide rax por rbx
+		xor rdx, rdx       			;Limpia rdx para la división
+    	div r10            				;Divide rax por rbx
     	
     	movzx rdx, dl
     
 store_digit_mul:
-<<<<<<< Updated upstream
-		mov dl, byte [digitos + rdx] ;Se busca el dígito obtenido en el look up table
+
+	mov dl, byte [digitos + rdx] ;Se busca el dígito obtenido en el look up table
     	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
     	dec rsi              ; Se mueve a la siguiente posición en el buffer
     	cmp rax, 0           ; Verifica si el cociente es cero
     	jg loop_mul          ; Si no es cero, continúa el bucle
-=======
-		mov dl, byte [digitos + rdx]
-    	mov [rdi + rsi], dl  # Almacena el carácter en el buffer
-    	dec rsi              # Se mueve a la siguiente posición en el buffer
-    	cmp rax, 0           # Verifica si el cociente es cero
-    	jg loop_mul          # Si no es cero, continúa el bucle
->>>>>>> Stashed changes
-    	
+
     	;Invierte la cadena
     	mov rdx, rdi
     	lea rcx, [rdi + rsi - 1]
@@ -714,7 +714,7 @@ _printNeg:
 _overflowDetected:			;check de overflow
 	mov rax, overflowMsg
 	call _genericprint
-	jmp _start
+	jmp _finishCode
 
 
 ;---------------- END PRINTS --------------------
