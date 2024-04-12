@@ -5,7 +5,7 @@ global _start
 section .data
 	text1 db "Ingrese un numero", 0xA, 0 					
 	digitos db '0123456789ABCDEF'     						;Caracteres que representan los dígitos en base 16
-	errorCode db "Error: Ingrese un numero valido", 0xA, 0
+	errorCode db "ERROR: Ingrese un numero valido", 0xA, 0
 	itoaNum dq 0											;numero para procesar en itoa (resultados de suma y resta)
 	itoaNumHigh dq 0
 	itoaNumLow dq 0
@@ -19,7 +19,7 @@ section .data
 	overflowMsg db "ERROR: Overflow", 0xA, 0
 	startPrompt db "Escoja una Opcion: 1. suma 2. resta 3. division 4. multiplicacion 5.Finalizar Programa",0xA,0
 	printCont dq 0
-	divisionError db "Division por cero, desea continuar?", 0xA, 0          
+	divisionError db "ERROR: Division por cero.", 0xA, 0          
 	mulPrint db "Print de multiplicaciones:", 0xA, 0
 	compare_num dq "18446744073709551615"					;indica el numero maximo a ingresar
 	mul_strHigh db "0000000000000000000000000000000000000000000000000000000000000000", 0
@@ -109,7 +109,7 @@ _opResta:
 	mov rsi, [num1]
 	cmp rax, rsi	
 	jg _resta ;Resta num2-num1
-    jle _cambio_resta ;Resta num1-num2
+    	jle _cambio_resta ;Resta num1-num2
 
 _restaEspecial:
 	sub rax, rsi ;Resta num2-num1
@@ -130,7 +130,7 @@ _resta:
 restaCont:
 	call _processLoop
 	mov byte[flagNegativo], 0
-	jmp _start
+	jmp _finishCode
 	call _processLoop
 	call _finishCode
 
@@ -177,12 +177,12 @@ _opDivision:
 		mov [itoaNum], rax
 		call _processLoop
 
-	jmp _start
+	jmp _finishCode
 
 division_by_zero:
 	mov rax, divisionError
 	call _genericprint
-	jmp _start
+	jmp _finishCode
 	
 _opMultiplicacion:
 	call _getUserInput
@@ -375,10 +375,6 @@ length_loop:
 length_done:
 	cmp rax, 21
 	jg _finishError					;error si es mas largo a 21	
-	ret
-
-	jg _finishError					;error si es mas largo a 21
-
 	ret
 
 ;--------------END CHEQUEO DE ERRORES------------------------
