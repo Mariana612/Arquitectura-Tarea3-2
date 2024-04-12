@@ -34,9 +34,9 @@
 	
 .section .bss
 
-	numString:	.skip 13
-	num1:		.skip 13
-	num2:		.skip 13
+	numString:	.skip 31
+	num1:		.skip 21
+	num2:		.skip 21
 	length:		.skip 1
 	buffer:		.skip 101		# Buffer para almacenar la cadena de caracteres convertida
 
@@ -51,7 +51,7 @@ _start:
 
 	call _getOption
 
-	mov $2, numBase
+	movq $2, numBase
 
 	cmpb $'1', numString(%rip)
 	je _opSuma
@@ -259,6 +259,8 @@ check_input:
 	movzb (%rsi, %rcx), %rax		# Cargar el byte actual
 	cmp $0xA, %rax
 	je input_valid					# Final del string alcanzado
+	cmp $0, %rax                   # Comprobar el final del string
+    je input_valid                 # Final del string alcanzado
 	cmp $'0', %rax
 	jb input_invalid					# Revisa caracteres no imprimibles
 	cmp $'9', %rax
@@ -664,7 +666,6 @@ _getText:
     syscall
     
     call _inputCheck                      # se asegura de que se ingrese unicamente numeros
-    jne input_invalid
     
     call _clearBuffer
     call _lengthCheck
@@ -677,18 +678,14 @@ _getText:
 _getOption:
 	movq $0, %rax
 	movq $0, %rdi
-	leaq numString(%rip), %rsi
+	movq $numString, %rsi
 	movq $101, %rdx
-	call _clearBuffer
+	syscall
 	call _lengthCheck
-	#cmpb $1, length(%rip)  	# Verificar si la longitud del string es igual a 1
-	#jne errorGetOption		# Saltar al manejo de error si la longitud no es 1
-	jmp _exitFunction		# Saltar a la salida normal si la longitud es 1
+	cmpb $2, length
+	je _exitFunction
+	jmp _finishError
 
-errorGetOption:
-	movq $getOptionError, %rax
-	call _genericprint
-	jmp _start
 
 _clearBuffer:
     movq $0, %rax          # System call number for sys_read
