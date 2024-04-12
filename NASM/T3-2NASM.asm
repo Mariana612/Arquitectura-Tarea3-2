@@ -59,8 +59,8 @@ _start:
 
 	cmp byte[numString], '5'
 	je _finishCode
-		
-	mov qword [num2], rax		;carga el primer numero en num2
+	
+	jmp _start
 
 	;------------------INICIO ------------------------
 	
@@ -172,6 +172,7 @@ _opMultiplicacion:
 	mov rax, mulPrint
 	call _genericprint
 	call _specialCaseSub		;realiza chequeo de casos especiales (numeros de len 20)
+	
 	mov rax, [num1]
 	mov rsi, [num2]
     mul rsi			;Hace la multiplicación
@@ -375,9 +376,6 @@ _processLoop:
 	je _printNeg					;realiza print del simbolo negativo
 	
 _verificarBases:
-	cmp qword [numBase],17
-	je _exitFunction
-
 	cmp qword [numBase], 2
 	je _continueLoop
 	
