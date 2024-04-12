@@ -38,12 +38,13 @@ section .text
 
 ;------------------ MAIN ------------------------
 _start:
-	
+	call _cleanRegisters
 	mov rax, startPrompt
 	call _genericprint
 	
 	call _getOption
-	mov qword [numBase],2
+
+	;mov qword [numBase],2
 
 	cmp byte[numString], '1'
 	je _opSuma
@@ -60,7 +61,23 @@ _start:
 	cmp byte[numString], '5'
 	je _finishCode
 	
+	call _cleanRegisters
 	jmp _start
+
+	;------------------INICIO ------------------------
+
+_cleanRegisters:
+	mov rdi, length
+	mov rcx, 101    ;Se puede tener max 21 caracteres
+	mov al, 0      ;Se limpia con NULL bytes
+	rep stosb      ;Se llena la memoria con NULL bytes
+
+	mov rdi, numString
+	mov rcx, 104    ;Se puede tener max 21 caracteres
+	mov al, 0      ;Se limpia con NULL bytes
+	rep stosb      ;Se llena la memoria con NULL bytes
+
+	ret
 
 	;------------------INICIO ------------------------
 	
@@ -68,14 +85,16 @@ _opSuma:
 	call _getUserInput
 
 	;#SUMA
+	mov rax, [num1]
+    	add rax, [num2]			;Hace la suma
+	jc _overflowDetected		;check de overflow
+
+	mov [itoaNum], rax		;inicio itoa suma
 	mov rax, sumPrint
 	call _genericprint
-	mov rax, [num1]
-    add rax, [num2]			;Hace la suma
-	jc _overflowDetected		;check de overflow
-	mov [itoaNum], rax		;inicio itoa suma
+
 	call _processLoop
-	jmp _start
+	jmp _finishCode
 	
 
 _opResta:
@@ -609,47 +628,34 @@ final_base_16:
     mov rax, buffer
 	call _genericprint ;Imprimir el string
 	
-<<<<<<< Updated upstream
-    ;Imprimir un salto de línea
-    mov rax, 1
-    mov rdi, 1          
-    mov rsi, espacio   
-    mov rdx, 1         
-=======
-    mov rax, 1          # syscall number for sys_write
-    mov rdi, 1          # file descriptor 1 (stdout)
-    mov rsi, espacio    # pointer to the newline character
-    mov rdx, 1          # length of the string (1 byte)
->>>>>>> Stashed changes
+
+    mov rax, 1          ;syscall number for sys_write
+    mov rdi, 1          ;file descriptor 1 (stdout)
+    mov rsi, espacio    ;pointer to the newline character
+    mov rdx, 1          ;length of the string (1 byte)
+
     syscall
     
 	ret
 
 ;BASE 2 - MULTIPLICACIÓN	
 inicio_binario:
-		mov rsi, 63      				# Cantidad de digitos del string
+		mov rsi, 63      			;Cantidad de digitos del string
 		
 loop_mul:
-		xor rdx, rdx       				# Limpia rdx para la división
-    	div r10            				# Divide rax por rbx
+		xor rdx, rdx       			;Limpia rdx para la división
+    	div r10            				;Divide rax por rbx
     	
     	movzx rdx, dl
     
 store_digit_mul:
-<<<<<<< Updated upstream
-		mov dl, byte [digitos + rdx] ;Se busca el dígito obtenido en el look up table
+
+	mov dl, byte [digitos + rdx] ;Se busca el dígito obtenido en el look up table
     	mov [rdi + rsi], dl  ; Almacena el carácter en el buffer
     	dec rsi              ; Se mueve a la siguiente posición en el buffer
     	cmp rax, 0           ; Verifica si el cociente es cero
     	jg loop_mul          ; Si no es cero, continúa el bucle
-=======
-		mov dl, byte [digitos + rdx]
-    	mov [rdi + rsi], dl  # Almacena el carácter en el buffer
-    	dec rsi              # Se mueve a la siguiente posición en el buffer
-    	cmp rax, 0           # Verifica si el cociente es cero
-    	jg loop_mul          # Si no es cero, continúa el bucle
->>>>>>> Stashed changes
-    	
+
     	;Invierte la cadena
     	mov rdx, rdi
     	lea rcx, [rdi + rsi - 1]
@@ -712,7 +718,7 @@ _printNeg:
 _overflowDetected:			;check de overflow
 	mov rax, overflowMsg
 	call _genericprint
-	jmp _start
+	jmp _finishCode
 
 
 ;---------------- END PRINTS --------------------
