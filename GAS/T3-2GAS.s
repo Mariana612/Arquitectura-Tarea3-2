@@ -358,60 +358,50 @@ _divisionByZeroDetected:
 
 # Definición de la función ITOA
 itoa:
-
-    movq %rsi, %rax             # Mueve el número a convertir (en rsi) a rax
-    xorq %rcx, %rcx             # Inicializa rcx como 0 (contador de posición en la cadena)
-    movq %rdi, %r9              # Usa r9 como el puntero al buffer
-    movq %r10, %rbx              # Carga la base desde el registro r10
+    movq %rsi, %rax                 # Mueve el número a convertir (en rsi) a rax
+    xorq %rsi, %rsi                 # Inicializa rsi como 0 (contador de posición en la cadena)
+    movq %rbx, %r10                 # Usa rbx como la base del número a convertir
 
 .loop:
-
-    xorq %rdx, %rdx          # Limpia rdx para la división
-    divq %rbx                # Divide rax por la base
+    xorq %rdx, %rdx                 # Limpia rdx para la división
+    divq %r10                       # Divide rax por rbx
     cmpq $10, %rbx
-    jbe .lower_base_digits   # Salta si la base es menor o igual a 10
+    jbe .lower_base_digits          # Salta si la base es menor o igual a 10
 
     # Maneja bases mayores que 10
-    movzb %dl, %rdx
-    movb digitos(%rdx), %dl   
+    movzbl %dl, %edx
+    movb digitos(,%rdx,1), %dl
     jmp .store_digit
 
 .lower_base_digits:
     # Maneja bases menores o iguales a 10
-    addb $'0', %dl   # Convierte el resto a un carácter ASCII
-    jmp .store_digit
+    addb $'0', %dl                   # Convierte el resto a un carácter ASCII
 
 .store_digit:
-    movb %dl, (%r9, %rcx)   
-    incq %rcx               
-    cmpq $0, %rax           
-    jg .loop                
+    movb %dl, (%rdi,%rsi)           # Almacena el carácter en el buffer
+    incq %rsi                        # Se mueve a la siguiente posición en el buffer
+    cmpq $0, %rax                    # Verifica si el cociente es cero
+    jg .loop                         # Si no es cero, continúa el bucle
 
-    # Reverse the string
-    movq %rcx, %rdx         
-    leaq -1(%rcx, %r9), %rsi
-    movq %r9, %rdi
+    # Invierte la cadena
+    movq %rdi, %rdx
+    leaq -1(%rdi,%rsi,1), %rcx
+    jmp reversetest
 
-.reverseloop:
-    movb (%rdi), %al        
-    movb (%rsi), %ah
-    movb %al, (%rsi)
-    movb %ah, (%rdi)
-    incq %rdi
-    decq %rsi
-    cmpq %rdi, %rsi         
-    jg .reverseloop         
-
-    movq %rcx, %rax         
-    ret
+reverseloop:
+    movb (%rdx), %al
+    movb (%rcx), %ah
+    movb %ah, (%rdx)
+    movb %al, (%rcx)
+    incq %rdx
+    decq %rcx
 
 reversetest:
     cmpq %rdx, %rcx
-    jl .reverseloop
+    jl reverseloop
 
-    movq %rsi, %rax  					# Devuelve la longitud de la cadena
+    movq %rsi, %rax                  # Devuelve la longitud de la cadena
     ret
-
 
 # -------------- END ITOA -------------------
 
