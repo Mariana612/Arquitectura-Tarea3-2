@@ -162,13 +162,13 @@ _cambio_resta:
     jmp restaCont                   # Se imprime el resultado de la resta
 
 _opDivision:
-	
+
+    call _getUserInput
+    
 	# DIVISIÓN
     movq $divPrint, %rax
     call _genericprint
-
-    call _getUserInput
-
+    
     movq num1(%rip), %rax
     movq num2(%rip), %rbx
     cmpq %rax, %rbx
@@ -194,11 +194,15 @@ division_by_zero:
 	call _genericprint
 	jmp _start
 
+#------------------------------MULTIPLICACION---------------------------
+
 _opMultiplicacion:
+	
+
 	jmp _start
 	
     
-_getUserInput:                               #Puede que este mal ----------------------------------------------------------------
+_getUserInput:                               
 	mov $text1, %rax
 	call _genericprint
 	call _getText			# Consigue el texto del usuario
