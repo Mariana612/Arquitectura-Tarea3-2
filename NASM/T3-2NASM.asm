@@ -211,7 +211,12 @@ division_by_zero:
 	jmp _opDivision
 	
 _opMultiplicacion:
+	mov byte[flagHasError],0 	;Reinicia el flag de error
+	mov byte[flagIsInside],1	;Establece que esta dentro de una funcion
+
 	call _getUserInput
+	cmp byte[flagHasError],1
+	je _opMultiplicacion
 	
 	;#MULTIPLICACIÓN
 	mov rax, mulPrint
@@ -225,7 +230,7 @@ _opMultiplicacion:
     mov [itoaNum], rax		;inicio itoa multiplicación
 	call _processLoop
 	
-	jmp _start
+	jmp _finishCode
 	
 	mulEspecial:
 		push rax
@@ -263,7 +268,7 @@ _opMultiplicacion:
 		jmp _processLoop_mul
 
 	finish:	
-		jmp _start
+		jmp _finishCode
 
 _getUserInput:	
 	
