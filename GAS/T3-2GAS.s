@@ -16,6 +16,8 @@
 	numBase:	.quad 2							# numero utilizado para la base del itoa
 	flagNegativo:	.byte 0						# flag que indica que el numero es negativo
 	flagSpCase:	.byte 0							# flag del caso especial de la resta
+	flagHasError:   .byte 0
+	flagIsInside:   .byte 0
 	negSign:	.asciz "-" 
 	sumPrint:	.asciz "Print de sumas:\n"
 	restPrint:	.asciz "Print de restas:\n"
@@ -68,7 +70,7 @@ _start:
 	cmpb $'5', numString(%rip)
 	je _finishCode
 	
-	call _cleanRegisters
+	call _finishError
 	jmp _start
 
 
@@ -86,9 +88,18 @@ _cleanRegisters:
 	ret
 	
 _opSuma:
+	movb $0, flagHasError(%rip)    # Reinicia el flag de error
+    movb $1, flagIsInside(%rip)    # Establece que está dentro de una funcion
+    
     call _getUserInput
+    cmpb $1, flagHasError(%rip)
+    je _opSuma                      # Reinicia el loop
+    
+    call _sumaContinue
+    cmpb $1, flagHasError(%rip)
+    je _opSuma
 
-    # SUMA
+_sumaContinue:
     movq num1(%rip), %rax    # Load num1 into %rax
     movq num2(%rip), %rbx    # Load num2 into %rbx
     addq %rbx, %rax    # Hace la suma
@@ -102,8 +113,13 @@ _opSuma:
     jmp _finishCode
 
 _opResta:
-
+	movb $0, flagHasError(%rip)    # Reinicia el flag de error
+    movb $1, flagIsInside(%rip)    # Establece que está dentro de una función
+	
 	call _getUserInput
+	
+	cmpb $1, flagHasError(%rip)
+    je _opResta                    # Reinicia el loop
 
 	# RESTA
 	mov $restPrint, %rax
@@ -162,7 +178,9 @@ _cambio_resta:
     jmp restaCont                   # Se imprime el resultado de la resta
 
 _opDivision:
-
+	movb $0, flagHasError(%rip)    # Reinicia el flag de error
+    movb $1, flagIsInside(%rip)    # Establece que está dentro de una función
+    
     call _getUserInput
     
 	# DIVISIÓN
@@ -197,15 +215,75 @@ division_by_zero:
 #------------------------------MULTIPLICACION---------------------------
 
 _opMultiplicacion:
-	
+	movb $0, flagHasError      # Reinicia el flag de error
+	movb $1, flagIsInside      # Establece que está dentro de una función
 
-	jmp _start
-	
+	call _getUserInput
+	cmpb $1, flagHasError
+	je _opMultiplicacion
+
+	# MULTIPLICACIÓN
+	movq mulPrint, %rax
+	call _genericprint
+	call _specialCaseSub      # realiza chequeo de casos especiales (numeros de len 20)
+
+	movq num1, %rax
+	movq num2, %rsi
+	mulq %rsi        # Hace la multiplicación
+	jc mulEspecial
+	movq %rax, itoaNum      # inicio itoa multiplicación
+	call _processLoop
+
+	jmp _finishCode
+
+mulEspecial:
+	pushq %rax
+	movq %rdx, itoaNumHigh      # inicio itoa multiplicación
+	movq $mul_strHigh, %rdi
+	movq itoaNumHigh, %rsi
+	call _startItoa_Mul
+
+	movq $mul_strHigh, %rax
+	call _genericprint
+
+	popq %rax
+	movq %rax, itoaNumLow      # inicio itoa multiplicación
+	movq $mul_strLow, %rdi
+	movq itoaNumLow, %rsi
+	call _startItoa_Mul
+
+	movq $mul_strLow, %rax
+	call _genericprint
+
+_processLoop_mul:
+	cmpq $16, numBase
+	jg finish
+
+_continueLoop_mul:
+	movq $buffer, %rdi
+	movq $44, %rcx      # Se puede tener max 21 caracteres
+	movb $0, %al        # Se limpia con NULL bytes
+	rep stosb        # Se llena la memoria con NULL bytes
+
+	movq $buffer, %rdi
+	call _startItoa_Mul
+
+	incq numBase
+	jmp _processLoop_mul
+
+finish:
+	jmp _finishCode
+
+
+
+#-----------------FIN MULTIPLICACION------------------------------------	
     
 _getUserInput:                               
 	mov $text1, %rax
 	call _genericprint
 	call _getText			# Consigue el texto del usuario
+	cmpb $1, flagHasError(%rip)
+    je _exitFunction
 
 	movb $0, numString		# Reinicia numString
 	movq %rax, num1			# Carga el primer número en num1
@@ -217,6 +295,8 @@ _getUserInput:
 
 	call _getText					# Consigue el texto del usuario
 	movq %rax, num2			# Carga el primer número en num2
+	cmpb $1, flagHasError(%rip)
+    je _exitFunction
 
 	ret
 
@@ -437,7 +517,49 @@ reversetest:
 
 #---------------ITOA MULT--------------------
 
+#Itoa Multiplicacion
+_startItoa_Mul:
+    movq numBase(%rip), %rbx     # Establece la base (la dirección de numBase se calcula en tiempo de ejecución)
+    call itoa_mul
+    ret
 
+itoa_mul:
+    movq %rsi, %rax               # Mueve el número a convertir (en rsi) a rax
+    movq $0, %rsi                 # Cantidad de dígitos del string
+    movq %rbx, %r10               # Usa rbx como la base del número a convertir
+    movq $0, %r8                  # Contador para bases low
+    
+    cmpq $2, %r10                 # Para convertir el número a binario
+    je inicio_binario
+    
+    #cmpq $8, %r10                 # Para convertir el número a octal
+    #je base_8
+    
+    #cmpq $16, %r10                # Para convertir el número a hexadecimal
+    #je base_16
+    
+    ret
+
+inicio_binario:
+    movq $63, %rsi                # Cantidad de dígitos del string
+
+loop_mul:
+    xorq %rdx, %rdx               # Limpia rdx para la división
+    divq %r10                     # Divide rax por rbx
+    
+    movzbq %dl, %rdx
+
+store_digit_mul:
+    movb digitos(%rdx), %dl      # Se busca el dígito obtenido en el look up table
+    movb %dl, (%rdi, %rsi)       # Almacena el carácter en el buffer
+    decq %rsi                     # Se mueve a la siguiente posición en el buffer
+    cmpq $0, %rax                 # Verifica si el cociente es cero
+    jg loop_mul                   # Si no es cero, continúa el bucle
+
+    # Invierte la cadena
+    movq %rdi, %rdx
+    leaq (%rdi, %rsi, 1), %rcx
+    jmp reversetest
 
 #--------------FIN ITOA MULT-----------------
 
