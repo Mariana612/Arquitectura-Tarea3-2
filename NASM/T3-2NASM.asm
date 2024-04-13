@@ -11,7 +11,7 @@ section .data
 	itoaNumLow dq 0
 	numBase dq 2											;numero utilizado para la base del itoa
 	flagNegativo db 0										;flag que indica que el numero es negativo
-	flagSpCase db 0											;flag del caso especial de la resta
+	flagSpCase db 0											;flag del caso especial de la resta65
 	negSign db "-" 
 	sumPrint db "Print de sumas:", 0xA, 0
 	restPrint db "Print de restas:", 0xA, 0
@@ -38,9 +38,10 @@ section .text
 
 ;------------------ MAIN ------------------------
 _start:
-	call _cleanRegisters
+	call _cleanRegisters	;Se utiliza cuando se ingresa un numero con error
+
 	mov rax, startPrompt
-	call _genericprint
+	call _genericprint	;print inicial
 	
 	call _getOption
 
@@ -60,8 +61,8 @@ _start:
 
 	cmp byte[numString], '5'
 	je _finishCode
-	
-	call _cleanRegisters
+
+	call _finishError	;Se utiliza cuando se ingresa un numero con error
 	jmp _start
 
 	;------------------INICIO ------------------------
