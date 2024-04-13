@@ -47,7 +47,7 @@
 #------------------ MAIN ------------------------
 .global _start
 _start:
-	#call _cleanRegisters     # output = segmentation fault
+	call _cleanRegisters
 	mov $startPrompt, %rax
 	call _genericprint
 
@@ -75,7 +75,7 @@ _start:
 
 
 _cleanRegisters:
-	movq length, %rdi
+	movq $length, %rdi
 	movq $101, %rcx
 	movb $0, %al
 	rep stosb
@@ -549,7 +549,7 @@ itoa_mul:
     cmpq $2, %r10                 # Para convertir el número a binario
     je inicio_binario
     
-    #cmpq $8, %r10                 # Para convertir el número a octal
+    cmpq $8, %r10                 # Para convertir el número a octal
     #je base_8
     
     #cmpq $16, %r10                # Para convertir el número a hexadecimal
@@ -577,6 +577,82 @@ store_digit_mul:
     movq %rdi, %rdx
     leaq (%rdi, %rsi, 1), %rcx
     jmp reversetest
+    
+#BASE 8 - MULTIPLICACIÓN
+base_8:
+    movq itoaNumLow(%rip), %r9     # Los bits menos significativos
+    movq itoaNumHigh(%rip), %r13   # Los bits más significativos
+    
+loop_base8_low:
+    mov $7, %r11
+    and %r11, %r9               # Enmascaramiento de los bits menos significativos para obtener los tres menores
+    shr $3, %r9                 # Se mueven los bits 3 veces a la derecha
+    
+    movq digitos(%rip), %rdx     # Carga la dirección base de la tabla de dígitos en %rdx
+	movb (%rdx, %r9), %dl        # Accede al byte de la tabla de dígitos usando el índice en %r9 y lo carga en %dl
+
+	movzbl digitos(%r11), %edx
+
+store_digit_8_low:
+    movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
+    inc %rsi                   # Se mueve a la siguiente posición del string
+    inc %r8                    # Se incrementa el contador
+    cmp $21, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
+    je _frontera8
+    
+    jmp loop_base8_low
+
+_frontera8:
+    mov $1, %r11
+    and %r11, %r9              # Se obtiene el bit que queda del grupo de bits menos significativos
+    
+    mov $3, %r12
+    and %r12, %r13             # Enmascaramiento de los bits más significativos para obtener los dos menores
+    shl $1, %r12               # Se mueven los bits para hacer espacio para lo que contiene el r11 
+    or %r11, %r12              # Se juntan el r12 y r11
+    
+    movzbl digitos(%r12), %edx
+    
+    movb %dl, (%rdi, %rsi)     # Almacena el caracter en el string
+    incq %rsi                   # Se mueve a la siguiente posición del string
+    
+high_parte:
+    shr $2, %r13     # Se mueven los bits 2 veces a la derecha para descartar los utilizados en la frontera
+    mov $0, %r8      # Contador para bases high
+
+
+loop_base8_high:
+    mov $7, %r11            # Carga el valor 7 en %r11
+    and %r11, %r13          # Enmascaramiento de los bits más significativos para obtener los tres menores
+    shr $3, %r13            # Se mueven los bits 3 veces a la derecha
+    
+    movzbl digitos(%r11), %edx
+
+store_digit_8_high:
+    movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
+    inc %rsi                   # Se mueve a la siguiente posición del string
+    inc %r8                    # Se incrementa el contador
+    cmp $21, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
+    je final_base_8
+    
+    jmp loop_base8_high
+
+final_base_8:
+    mov %rdi, %rdx          # Copia la dirección del string en %rdx
+    lea (%rdi, %rsi, 1), %rcx  # Calcula la dirección del último carácter del string
+    call reversetest        # Darle vuelta al string
+    
+    mov $buffer, %rax       # Carga la dirección del buffer en %rax
+    call _genericprint      # Imprimir el string
+    
+    # Imprimir un salto de línea
+    mov $1, %rax            # syscall número 1 (write)
+    mov $1, %rdi            # descriptor de archivo (stdout)
+    movq $espacio, %rsi     # dirección del string "espacio"
+    mov $1, %rdx            # longitud del string (1 byte)
+    syscall                 # realizar la llamada al sistema para imprimir el salto de línea
+    
+    ret                      # Retorna
 
 #--------------FIN ITOA MULT-----------------
 
