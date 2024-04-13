@@ -223,17 +223,17 @@ _opMultiplicacion:
 	je _opMultiplicacion
 
 	# MULTIPLICACIÓN
-	movq mulPrint, %rax
+	movq $mulPrint, %rax
 	call _genericprint
 	call _specialCaseSub      # realiza chequeo de casos especiales (numeros de len 20)
-
+	
 	movq num1, %rax
 	movq num2, %rsi
-	mulq %rsi        # Hace la multiplicación
+	mulq %rsi         # Hace la multiplicación
 	jc mulEspecial
 	movq %rax, itoaNum      # inicio itoa multiplicación
 	call _processLoop
-
+	
 	jmp _finishCode
 
 mulEspecial:
@@ -508,7 +508,7 @@ reverseloop:
 
 reversetest:
     cmpq %rdx, %rcx
-    jl reverseloop
+    jg reverseloop
 
     movq %rsi, %rax                  # Devuelve la longitud de la cadena
     ret
