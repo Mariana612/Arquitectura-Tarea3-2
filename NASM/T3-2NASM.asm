@@ -12,6 +12,8 @@ section .data
 	numBase dq 2											;numero utilizado para la base del itoa
 	flagNegativo db 0										;flag que indica que el numero es negativo
 	flagSpCase db 0											;flag del caso especial de la resta65
+	flagHasError db 0
+	flagIsInside db 0
 	negSign db "-" 
 	sumPrint db "Print de sumas:", 0xA, 0
 	restPrint db "Print de restas:", 0xA, 0
@@ -83,7 +85,13 @@ _cleanRegisters:
 	;------------------INICIO ------------------------
 	
 _opSuma:
+	mov byte[flagHasError],0 	;Reinicia el flag de error
+	mov byte[flagIsInside],1	;Establece que esta dentro de una funcion
+
 	call _getUserInput
+	cmp byte[flagHasError],1
+	je _opSuma			;reinicia el loop
+	
 
 	;#SUMA
 	mov rax, [num1]
@@ -245,6 +253,8 @@ _getUserInput:
 	mov rax, text1
 	call _genericprint
 	call _getText			;Consigue el texto del usuario
+	cmp byte[flagHasError],1
+	je _exitFunction
 
 
 	mov byte[numString], 0		;reinicia numString
@@ -257,6 +267,8 @@ _getUserInput:
 	
 	call _getText			;Consigue el texto del usuario
 	mov qword [num2], rax		;carga el primer numero en num2
+	cmp byte[flagHasError],1
+	je _exitFunction
 
 	ret
 ;------------------ATOI---------------------------------------
@@ -718,14 +730,19 @@ _overflowDetected:			;check de overflow
 	jmp _finishCode
 
 
+_flagInsideError:
+	mov byte[flagHasError],1	
+	ret
 ;---------------- END PRINTS --------------------
 ;-------------------- Finalizacion de codigo 
 
 _finishError:			;finaliza codigo
 	mov rax, errorCode
 	call _genericprint
-	jmp _start
+	cmp byte[flagIsInside], 1
+	je _flagInsideError
 
+	jmp _start
 _finishCode:			;finaliza codigo
 	mov rax, 60
 	mov rdi, 0
