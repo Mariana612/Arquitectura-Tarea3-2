@@ -34,24 +34,24 @@
 	
 .section .bss
 
-	numString:	.skip 31
-	num1:		.skip 21
-	num2:		.skip 21
-	length:		.skip 1
-	buffer:		.skip 101		# Buffer para almacenar la cadena de caracteres convertida
+    .lcomm numString, 31
+    .lcomm num1, 21         
+    .lcomm num2, 21         
+    .lcomm length, 1        
+    .lcomm buffer, 101 
 
 .section .text
 
 #------------------ MAIN ------------------------
 .global _start
 _start:
-
+	#call _cleanRegisters     # output = segmentation fault
 	mov $startPrompt, %rax
 	call _genericprint
 
 	call _getOption
 
-	movq $2, numBase
+	#movq $2, numBase
 
 	cmpb $'1', numString(%rip)
 	je _opSuma
@@ -68,23 +68,38 @@ _start:
 	cmpb $'5', numString(%rip)
 	je _finishCode
 	
+	call _cleanRegisters
+	jmp _start
+
+
+_cleanRegisters:
+	movq length, %rdi
+	movq $101, %rcx
+	movb $0, %al
+	rep stosb
+
+	movq $numString, %rdi
+	movq $104, %rcx
+	movb $0, %al
+	rep stosb
+
+	ret
 	
 _opSuma:
+    call _getUserInput
 
-	call _getUserInput
+    # SUMA
+    movq num1(%rip), %rax    # Load num1 into %rax
+    movq num2(%rip), %rbx    # Load num2 into %rbx
+    addq %rbx, %rax    # Hace la suma
+    jc _overflowDetected      # Check de overflow
 
-	# SUMA
-	mov $sumPrint, %rax
-	call _genericprint
+    movq %rax, itoaNum(%rip)    # Inicio itoa suma
+    movq $sumPrint, %rax
+    call _genericprint
 
-	movq num1(%rip), %rax
-	addq num2(%rip), %rax  	# Hace la suma
-	jc _overflowDetected  	# Check de overflow
-
-	movq %rax, itoaNum(%rip) 	# Inicio itoa suma
-	call _processLoop
-
-	jmp _start
+    call _processLoop
+    jmp _finishCode
 
 _opResta:
 
@@ -142,33 +157,6 @@ _cambio_resta:
 	jmp restaCont 			# Se imprime el resultado de la resta
 
 _opDivision:
-
-	call _getUserInput
-
-	# División
-	mov $divPrint, %rax
-	call _genericprint
-
-	movq num1(%rip), %rax
-	movq num2(%rip), %rbx
-
-	cmp %rax, %rbx
-	jge mayor_num1 	# Salto si num1 es mayor o igual a num2
-
-	xchg %rax, %rbx
-
-mayor_num1:
-	# Caso para la división por cero 
-	cmp $0, %rbx
-	je division_by_zero
-
-	# Resultado se guarda en %rax (cociente)
-	xor %rdx, %rdx
-	div %rbx
-
-	movq %rax, itoaNum(%rip)
-	call _processLoop
-
 	jmp _start
 
 division_by_zero:
@@ -177,72 +165,24 @@ division_by_zero:
 	jmp _start
 
 _opMultiplicacion:
-	_opMultiplicacion:
-	call _getUserInput
-
-	# MULTIPLICACIÓN
-	mov $mulPrint, %rax
-	call _genericprint
-	call _specialCaseSub		# Realiza chequeo de casos especiales (números de longitud 20)
-
-	movq num1(%rip), %rax
-	movq num2(%rip), %rsi
-	mulq %rsi					# Hace la multiplicación
-	jc mulEspecial
-	movq %rax, itoaNum(%rip)	# Inicio itoa multiplicación
-	call _processLoop
-
-	jmp _start
-
-mulEspecial:
-	push %rax
-	movq %rdx, itoaNumHigh(%rip)	# Inicio itoa multiplicación
-	mov $mul_strHigh, %rdi
-	movq itoaNumHigh(%rip), %rsi
-	call _startItoa_Mul
-	mov $mul_strHigh, %rax
-	call _genericprint
-	pop %rax
-	movq %rax, itoaNumLow(%rip)	# Inicio itoa multiplicación
-	mov $mul_strLow, %rdi
-	movq itoaNumLow(%rip), %rsi
-	call _startItoa_Mul
-	mov $mul_strLow, %rax
-	call _genericprint
-
-_processLoop_mul:
-	cmpq $16, numBase(%rip)
-	jg finish
-_continueLoop_mul:
-	mov $buffer, %rdi
-	mov $44, %rcx    # Se puede tener como máximo 21 caracteres
-	mov $0, %al      # Se limpia con NULL bytes
-	rep stosb        # Se llena la memoria con NULL bytes
-	mov $buffer, %rdi
-	call _startItoa_Mul
-	incq numBase(%rip)
-	jmp _processLoop_mul
-
-finish:
 	jmp _start
 	
-
     
 _getUserInput:                               #Puede que este mal ----------------------------------------------------------------
 	mov $text1, %rax
 	call _genericprint
 	call _getText			# Consigue el texto del usuario
 
-	movb $0, numString(%rip)		# Reinicia numString
-	movq %rax, num1(%rip)			# Carga el primer número en num1
+	movb $0, numString		# Reinicia numString
+	movq %rax, num1			# Carga el primer número en num1
 	xorq %rax, %rax					# Reinicia rax
-	movb $0, numString(%rip)		# Reinicia numString
+	movb $0, numString		# Reinicia numString
 
 	mov $text1, %rax				# Hace print inicial
 	call _genericprint
 
 	call _getText					# Consigue el texto del usuario
-	movq %rax, num2(%rip)			# Carga el primer número en num2
+	movq %rax, num2			# Carga el primer número en num2
 
 	ret
 
@@ -297,17 +237,24 @@ _num20:						# Calcula la longitud de num2
 	movb $1, flagSpCase(%rip)		# Es caso especial
 	ret
 
+#-----------Calcula longitud de un numero
+
 _countInt:
 	movb $0, length(%rip)
 
 divide_loop:
-	test %rax, %rax
+	testq %rax, %rax
 	jz _exitFunction
+	
 	incb length(%rip)				# Incrementa contador
+	
 	mov $10, %rbx					# Divide %rax por 10
 	xor %rdx, %rdx 					# Reinicia %rdx para la división
-	div %rbx
+	divq %rbx
+	
 	jmp divide_loop					# Loop
+
+#-----------Calcula longitud de un string
 
 _lengthCheck:
 	xor %rax, %rax                  	# Clear registro de %rax
@@ -334,24 +281,26 @@ errorLength:
 # ----------------- ATOI ----------------------------------
 
 _AtoiStart:
-    xorq %rbx, %rbx			# reinicia el registro
-    xorq %rax, %rax			# reinicia el registro
-    leaq numString(%rip), %rcx		# ingresa el numString a rcx
+    xorq %rbx, %rbx         # Reinicia el registro
+    xorq %rax, %rax         # Reinicia el registro
+    leaq numString(%rip), %rcx   # Ingresa el numString a rcx
+    testq %rcx, %rcx        # Comprueba si el puntero al buffer es nulo
+    je _exitFunction        # Salta si es nulo
     jmp _Atoi
 
 _Atoi:
     movb (%rcx), %bl
     cmpb $0xA, %bl
-    je _exitFunction		# se asegura de que sea el final del string
+    je _exitFunction       # Se asegura de que sea el final del string
 
-    subq $0x30, %rbx		# resta 30h al string para volverlo el numero
-    imulq $10, %rax 		# multiplica el numero almacenado en rax x 10 para volverlo decimal
-    addq %rbx, %rax			# agrega el ultimo numero obtenido a rax (ej: 10+3=13)
-    jc _overflowDetected	# check de overflow
+    subq $0x30, %rbx       # Resta 30h al string para volverlo el número
+    imulq $10, %rax        # Multiplica el número almacenado en rax x 10 para volverlo decimal
+    addq %rbx, %rax        # Agrega el último número obtenido a rax (ej: 10+3=13)
+    jc _overflowDetected  # Check de overflow
 
-    xorq %rbx, %rbx			# reinicia el registro
-    incq %rcx				# incrementa x 1 el rcx (obtiene el siguiente caracter)
-    jmp _Atoi			# realiza loop
+    xorq %rbx, %rbx        # Reinicia el registro
+    incq %rcx              # Incrementa x 1 el rcx (obtiene el siguiente caracter)
+    jmp _Atoi              # Realiza loop
 
 _exitFunction: 
     ret
@@ -364,14 +313,11 @@ _exitFunction:
 # LOOP PARA REALIZAR ITOA
 _processLoop:
 
-    cmpq $17, numBase(%rip)  # Ajusta el límite del contador
+    cmpq $17, numBase(%rip)
     je _exitFunction
-    
-    cmpq $101, numBase(%rip)    # Verificar si el contador ha excedido el tamaño del buffer
-    jge _exitFunction                  # Salir si el contador excede el tamaño del buffer
 
-    cmpb $1, flagNegativo(%rip)            # se asegura de que el primer numero sea o no negativo
-    je _printNeg                    # realiza print del simbolo negativo
+    cmpb $1, flagNegativo(%rip)       # Se asegura de que el primer número sea o no negativo
+    je _printNeg                      # Realiza el print del símbolo negativo
 
 _continueLoop:
     movq numBase(%rip), %rbx       # Asigna la base dinámicamente
@@ -387,6 +333,10 @@ _startItoa:
     movq $buffer, %rdi
     movq itoaNum(%rip), %rsi
     movq numBase(%rip), %rbx
+    
+    cmpq $0, %rbx            # Comprueba si la base es cero
+    je _divisionByZeroDetected   # Salta si es cero
+    
     call itoa
 
     movq %rax, %r8  					# Almacena la longitud de la cadena
@@ -399,6 +349,12 @@ _startItoa:
 
     movq $buffer, %rax
     jmp _genericprint
+
+_divisionByZeroDetected:
+    movq $divisionError, %rax
+    call _genericprint
+    ret
+
 
 # Definición de la función ITOA
 itoa:
@@ -461,175 +417,6 @@ reversetest:
 
 #---------------ITOA MULT--------------------
 
-_startItoa_Mul:
-	# Llama a ITOA para convertir n a cadena
-	movq numBase(%rip), %rbx	# Establece la base
-	call itoa_mul
-	ret
-
-itoa_mul:
-    movq %rsi, %rax                	# Mueve el número a convertir (en rsi) a rax
-    xorq %rsi, %rsi                 	# Cantidad de dígitos del string
-    movq %rbx, %r10                 	# Usa rbx como la base del número a convertir
-    xorq %r8, %r8                    	# Contador para bases low
-    
-    cmpq $2, %r10
-    je inicio_binario
-
-    cmpq $8, %r10
-    je base_8
-
-    cmpq $16, %r10
-    je base_16
-
-    ret
-
-#Inicio base 8
-base_8:
-	movq itoaNumLow(%rip), %r9
-	movq itoaNumHigh(%rip), %r13
-
-loop_base8_low:
-	movq $7, %r11
-	andq %r9, %r11
-	shrq $3, %r9
-
-    movb digitos(%r11), %dl
-
-store_digit_8_low:
-    movb %dl, (%rdi, %rsi)  # Almacena el carácter en el buffer
-    incq %rsi               # Se mueve a la siguiente posición en el buffer
-    incq %r8
-    cmpq $21, %r8
-	je _frontera8
-	jmp loop_base8_low
-
-_frontera8:
-    movq $1, %r11
-	andq %r11, %r9
-
-	movq $3, %r12
-	andq %r12, %r13
-	shlq $1, %r12
-	orq %r11, %r12
-
-	movb digitos(%r12), %dl
-
-	movb %dl, (%rdi, %rsi)  # Almacena el carácter en el buffer
-    incq %rsi               # Se mueve a la siguiente posición en el buffer
-
-
-high_parte:
-	shrq $2, %r13
-	movq $0, %r8 	# Contador para bases high
-
-loop_base8_high:
-	movq $7, %r11
-	andq %r11, %r13
-	shrq $3, %r13
-
-	movb digitos(%r11), %dl
-
-store_digit_8_high:
-    movb %dl, (%rdi, %rsi)  # Almacena el carácter en el buffer
-    incq %rsi               # Se mueve a la siguiente posición en el buffer
-    incq %r8
-    cmpq $21, %r8
-	je final_base_8
-	jmp loop_base8_high
-
-final_base_8:
-	movq %rdi, %rdx
-    leaq -1(%rdi, %rsi), %rcx
-    call reversetest
-
-    movq $buffer, %rax
-	call _genericprint
-
-    movq $1, %rax          # syscall number for sys_write
-    movq $1, %rdi          # file descriptor 1 (stdout)
-    leaq espacio(%rip), %rsi    # pointer to the newline character
-    movq $1, %rdx          # length of the string (1 byte)
-    syscall
-
-	ret
-
-#Inicio base 16
-
-base_16:
-	movq itoaNumLow(%rip), %r9
-	movq itoaNumHigh(%rip), %r13
-
-loop_base16_low:
-	movq $0xf, %r11
-	andq %r9, %r11
-	shrq $4, %r9
-
-    movb digitos(%r11), %dl
-
-store_digit_16_low:
-    movb %dl, (%rdi, %rsi)  # Almacena el carácter en el buffer
-    incq %rsi               # Se mueve a la siguiente posición en el buffer
-    incq %r8
-    cmpq $16, %r8
-	je _inicio_base_16
-	jmp loop_base16_low
-
-_inicio_base_16:
-	movq $0, %r8 	# Contador para bases high
-
-loop_base16_high:
-	movq $0xf, %r11
-	andq %r11, %r13
-	shrq $4, %r13
-
-    movb digitos(%r11), %dl
-
-store_digit_16_high:
-    movb %dl, (%rdi, %rsi)  # Almacena el carácter en el buffer
-    incq %rsi               # Se mueve a la siguiente posición en el buffer
-    incq %r8
-    cmpq $16, %r8
-	je final_base_16
-	jmp loop_base16_high
-
-final_base_16:
-	movq %rdi, %rdx
-    leaq -1(%rdi, %rsi), %rcx
-    call reversetest
-
-    movq $buffer, %rax
-	call _genericprint
-
-    movq $1, %rax          # syscall number for sys_write
-    movq $1, %rdi          # file descriptor 1 (stdout)
-    leaq espacio(%rip), %rsi    # pointer to the newline character
-    movq $1, %rdx          # length of the string (1 byte)
-    syscall
-
-	ret
-
-#Inicio base 2
-
-inicio_binario:
-	movq $63, %rsi      				# Cantidad de dígitos del string
-
-loop_mul:
-	xorq %rdx, %rdx       				# Limpia rdx para la división
-    divq %r10            				# Divide rax por rbx
-    movzbl %dl, %edx
-
-store_digit_mul:
-	movb digitos(%rdx), %dl
-	movb %dl, (%rdi, %rsi)  # Almacena el carácter en el buffer
-    decq %rsi               # Se mueve a la siguiente posición en el buffer
-    cmpq $0, %rax           # Verifica si el cociente es cero
-    jg loop_mul             # Si no es cero, continúa el bucle
-
-    # Invierte la cadena
-    movq %rdi, %rdx
-    leaq -1(%rdi, %rsi), %rcx
-    jmp reversetest
 
 
 #--------------FIN ITOA MULT-----------------
@@ -661,13 +448,11 @@ _endPrint:
 _getText:                             
     movq $0, %rax
     movq $0, %rdi
-    leaq num1(%rip), %rsi
+    movq $numString, %rsi
     movq $101, %rdx
     syscall
     
     call _inputCheck                      # se asegura de que se ingrese unicamente numeros
-    
-    call _clearBuffer
     call _lengthCheck
     
     
