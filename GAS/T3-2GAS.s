@@ -432,6 +432,23 @@ _processLoop:
 
     cmpb $1, flagNegativo(%rip)       # Se asegura de que el primer número sea o no negativo
     je _printNeg                      # Realiza el print del símbolo negativo
+    
+_verificarBases:
+	cmpq $2, numBase
+	je _continueLoop
+
+	cmpq $8, numBase
+	je _continueLoop
+
+	cmpq $10, numBase
+	je _continueLoop
+
+	cmpq $16, numBase
+	je _continueLoop
+
+	incq numBase
+	jmp _verificarBases
+
 
 _continueLoop:
     movq numBase(%rip), %rbx       # Asigna la base dinámicamente
@@ -629,7 +646,7 @@ _printNeg:
 	leaq negSign(%rip), %rsi
 	movq $1, %rdx
 	syscall
-	jmp _continueLoop
+	jmp _verificarBases
 
 _overflowDetected:		# Check de overflow
 	movq $overflowMsg, %rax
