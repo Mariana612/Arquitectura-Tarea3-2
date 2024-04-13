@@ -174,7 +174,12 @@ _cambio_resta:
 	jmp restaCont ;Se imprime el resultado de la resta
 
 _opDivision:
+	mov byte[flagHasError],0 	;Reinicia el flag de error
+	mov byte[flagIsInside],1	;Establece que esta dentro de una funcion
+
 	call _getUserInput
+	cmp byte[flagHasError],1
+	je _opDivision
 		
 	;#DIVISIÓN
 	mov rax, divPrint
@@ -203,7 +208,7 @@ _opDivision:
 division_by_zero:
 	mov rax, divisionError
 	call _genericprint
-	jmp _finishCode
+	jmp _opDivision
 	
 _opMultiplicacion:
 	call _getUserInput
