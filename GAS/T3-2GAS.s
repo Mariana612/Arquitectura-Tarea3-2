@@ -114,8 +114,8 @@ _opResta:
 	movq num2(%rip), %rax
 	movq num1(%rip), %rsi
 	cmp %rax, %rsi
-	jge _resta 				# Resta num2-num1
-	jl _cambio_resta 		        # Resta num1-num2
+	jg _resta 				# Resta num2-num1
+	jle _cambio_resta 		        # Resta num1-num2
 
 _restaEspecial:
 
@@ -131,30 +131,35 @@ _resta:
 	cmp %rsi, %r10
 	jae _restaEspecial
 
-	subq %rsi, %rax 	# Resta num2-num1
-	movq %rax, itoaNum(%rip) 	# Inicio itoa resta
+	movb $1, flagNegativo(%rip)    # Indica que el número es negativo
+    subq %rsi, %rax                 # Resta num2-num1
+    movq %rax, itoaNum(%rip)       # Inicio itoa resta
 
 restaCont:
 	call _processLoop
-	jmp _start
+    movb $0, flagNegativo(%rip)
+    jmp _finishCode
+    call _processLoop
+    call _finishCode
 	
 _cambio_restaEspecial:
-	subq %rax, %rsi 		# Resta num1-num2
-	negq %rsi 				# Negar resultado
-	movq %rsi, itoaNum(%rip) 	# Inicio itoa resta
-	jmp restaCont
+	movb $1, flagNegativo(%rip)    # Indica que el número es negativo
+    subq %rax, %rsi                 # Resta num1-num2
+    negq %rsi                       # Negar resultado
+    movq %rsi, itoaNum(%rip)        # Inicio itoa resta               
+    jmp restaCont
 
 _cambio_resta:
 
 	# Si el número es mayor que cierto dígito, se debe negar el resultado
-	mov $9900000000000000000, %r10
-	cmp %rax, %r10
-	jae _cambio_restaEspecial
-
-	subq %rsi, %rax 		# Resta num1-num2
-	movq %rsi, itoaNum(%rip) 	# Inicio itoa resta
-
-	jmp restaCont 			# Se imprime el resultado de la resta
+    movq $9900000000000000000, %r10
+    cmpq %rax, %r10
+    jae _cambio_restaEspecial
+    
+    subq %rax, %rsi                 # Resta num1-num2
+    movq %rsi, itoaNum(%rip)        # Inicio itoa resta
+    
+    jmp restaCont                   # Se imprime el resultado de la resta
 
 _opDivision:
 	jmp _start
