@@ -162,7 +162,32 @@ _cambio_resta:
     jmp restaCont                   # Se imprime el resultado de la resta
 
 _opDivision:
-	jmp _start
+	
+	# DIVISIÓN
+    movq $divPrint, %rax
+    call _genericprint
+
+    call _getUserInput
+
+    movq num1(%rip), %rax
+    movq num2(%rip), %rbx
+    cmpq %rax, %rbx
+    jle mayor_num1                    # Salto si num1 es mayor o igual a num2
+    xchgq %rax, %rbx
+
+mayor_num1:
+    # Caso para la división por cero
+    cmpq $0, %rbx
+    je division_by_zero
+
+    # Resultado se guarda en rax (cociente)
+    xorq %rdx, %rdx
+    divq %rbx
+
+    movq %rax, itoaNum(%rip)
+    call _processLoop
+
+    jmp _finishCode
 
 division_by_zero:
 	mov $divisionError, %rax
@@ -340,7 +365,7 @@ _startItoa:
     movq numBase(%rip), %rbx
     
     cmpq $0, %rbx            # Comprueba si la base es cero
-    je _divisionByZeroDetected   # Salta si es cero
+    je division_by_zero   # Salta si es cero
     
     call itoa
 
@@ -355,10 +380,6 @@ _startItoa:
     movq $buffer, %rax
     jmp _genericprint
 
-_divisionByZeroDetected:
-    movq $divisionError, %rax
-    call _genericprint
-    ret
 
 
 # Definición de la función ITOA
