@@ -93,10 +93,17 @@ _opSuma:
 	je _opSuma			;reinicia el loop
 	
 
+	call _sumaContinue
+	cmp byte[flagHasError],1
+	je _opSuma
+	
+_sumaContinue:
 	;#SUMA
 	mov rax, [num1]
     	add rax, [num2]			;Hace la suma
 	jc _overflowDetected		;check de overflow
+
+
 
 	mov [itoaNum], rax		;inicio itoa suma
 	mov rax, sumPrint
@@ -107,7 +114,12 @@ _opSuma:
 	
 
 _opResta:
+	mov byte[flagHasError],0 	;Reinicia el flag de error
+	mov byte[flagIsInside],1	;Establece que esta dentro de una funcion
+
 	call _getUserInput
+	cmp byte[flagHasError],1
+	je _opResta
 
 	;#RESTA
 	mov rax, restPrint
@@ -727,7 +739,13 @@ _printNeg:
 _overflowDetected:			;check de overflow
 	mov rax, overflowMsg
 	call _genericprint
-	jmp _finishCode
+	
+	cmp byte[flagIsInside], 0
+	je _start
+
+	mov byte[flagHasError],1
+	ret
+	
 
 
 _flagInsideError:
