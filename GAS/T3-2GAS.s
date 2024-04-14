@@ -40,7 +40,7 @@
     .lcomm num1, 21         
     .lcomm num2, 21         
     .lcomm length, 1        
-    .lcomm buffer, 101 
+    .lcomm buffer, 200
 
 .section .text
 
@@ -580,15 +580,22 @@ store_digit_mul:
     
 #BASE 8 - MULTIPLICACIÓN
 base_8:
+	
     movq itoaNumLow(%rip), %r9     # Los bits menos significativos
     movq itoaNumHigh(%rip), %r13   # Los bits más significativos
-    
+
 loop_base8_low:
     mov $7, %r11
     and %r9, %r11               # Enmascaramiento de los bits menos significativos para obtener los tres menores
     shr $3, %r9                 # Se mueven los bits 3 veces a la derecha
 
+<<<<<<< Updated upstream
 	mov digitos(%r11), %dl
+=======
+	movzb %dl, %r11d
+	movb digitos(%r11), %dl 
+
+>>>>>>> Stashed changes
 
 store_digit_8_low:
     movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
@@ -596,6 +603,7 @@ store_digit_8_low:
     inc %r8                    # Se incrementa el contador
     cmp $21, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima   
     je _frontera8
+   
     
     jmp loop_base8_low
 
