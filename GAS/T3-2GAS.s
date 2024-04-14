@@ -261,10 +261,10 @@ _processLoop_mul:
 
 _continueLoop_mul:
 	movq $buffer, %rdi
-	movq $44, %rcx      # Se puede tener max 21 caracteres
+	movq $44, %rcx      # Se puede tener max 44 caracteres
 	movb $0, %al        # Se limpia con NULL bytes
 	rep stosb        # Se llena la memoria con NULL bytes
-
+    
 	movq $buffer, %rdi
 	call _startItoa_Mul
 
@@ -550,10 +550,10 @@ itoa_mul:
     je inicio_binario
     
     cmpq $8, %r10                 # Para convertir el número a octal
-    #je base_8
+    je base_8
     
-    #cmpq $16, %r10                # Para convertir el número a hexadecimal
-    #je base_16
+    cmpq $16, %r10                # Para convertir el número a hexadecimal
+    je base_16
     
     ret
 
@@ -585,33 +585,30 @@ base_8:
     
 loop_base8_low:
     mov $7, %r11
-    and %r11, %r9               # Enmascaramiento de los bits menos significativos para obtener los tres menores
+    and %r9, %r11               # Enmascaramiento de los bits menos significativos para obtener los tres menores
     shr $3, %r9                 # Se mueven los bits 3 veces a la derecha
-    
-    movq digitos(%rip), %rdx     # Carga la dirección base de la tabla de dígitos en %rdx
-	movb (%rdx, %r9), %dl        # Accede al byte de la tabla de dígitos usando el índice en %r9 y lo carga en %dl
 
-	movzbl digitos(%r11), %edx
+	mov digitos(%r11), %dl
 
 store_digit_8_low:
     movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
     inc %rsi                   # Se mueve a la siguiente posición del string
     inc %r8                    # Se incrementa el contador
-    cmp $21, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
+    cmp $21, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima   
     je _frontera8
     
     jmp loop_base8_low
 
 _frontera8:
     mov $1, %r11
-    and %r11, %r9              # Se obtiene el bit que queda del grupo de bits menos significativos
+    and %r9, %r11              # Se obtiene el bit que queda del grupo de bits menos significativos
     
     mov $3, %r12
-    and %r12, %r13             # Enmascaramiento de los bits más significativos para obtener los dos menores
+    and %r13, %r12             # Enmascaramiento de los bits más significativos para obtener los dos menores
     shl $1, %r12               # Se mueven los bits para hacer espacio para lo que contiene el r11 
     or %r11, %r12              # Se juntan el r12 y r11
     
-    movzbl digitos(%r12), %edx
+    mov digitos(%r12), %dl
     
     movb %dl, (%rdi, %rsi)     # Almacena el caracter en el string
     incq %rsi                   # Se mueve a la siguiente posición del string
@@ -623,10 +620,10 @@ high_parte:
 
 loop_base8_high:
     mov $7, %r11            # Carga el valor 7 en %r11
-    and %r11, %r13          # Enmascaramiento de los bits más significativos para obtener los tres menores
+    and %r13, %r11          # Enmascaramiento de los bits más significativos para obtener los tres menores
     shr $3, %r13            # Se mueven los bits 3 veces a la derecha
     
-    movzbl digitos(%r11), %edx
+    mov digitos(%r11), %dl
 
 store_digit_8_high:
     movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
@@ -638,9 +635,68 @@ store_digit_8_high:
     jmp loop_base8_high
 
 final_base_8:
-    mov %rdi, %rdx          # Copia la dirección del string en %rdx
-    lea (%rdi, %rsi, 1), %rcx  # Calcula la dirección del último carácter del string
-    call reversetest        # Darle vuelta al string
+    # Invierte la cadena
+    movq %rdi, %rdx
+    leaq -1(%rdi,%rsi,1), %rcx
+    call reversetest
+    
+    mov $buffer, %rax       # Carga la dirección del buffer en %rax
+    call _genericprint      # Imprimir el string
+    
+    # Imprimir un salto de línea
+    mov $1, %rax            # syscall número 1 (write)
+    mov $1, %rdi            # descriptor de archivo (stdout)
+    movq $espacio, %rsi     # dirección del string "espacio"
+    mov $1, %rdx            # longitud del string (1 byte)
+    syscall                 # realizar la llamada al sistema para imprimir el salto de línea
+    
+    ret                      # Retorna
+
+#BASE 16 - MULTIPLICACIÓN
+base_16:
+    movq itoaNumLow(%rip), %r9     # Los bits menos significativos
+    movq itoaNumHigh(%rip), %r13   # Los bits más significativos
+    
+loop_base16_low:
+    mov $15, %r11				# Carga el valor 15 en %r11
+    and %r9, %r11               # Enmascaramiento de los bits menos significativos para obtener los cuatro menores
+    shr $4, %r9                 # Se mueven los bits 4 veces a la derecha
+
+	mov digitos(%r11), %dl
+
+store_digit_16_low:
+    movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
+    inc %rsi                   # Se mueve a la siguiente posición del string
+    inc %r8                    # Se incrementa el contador
+    cmp $16, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima   
+    je _inicio_base_16
+    
+    jmp loop_base16_low
+    
+_inicio_base_16:
+	mov $0, %r8
+
+loop_base16_high:
+    mov $15, %r11            # Carga el valor 15 en %r11
+    and %r13, %r11          # Enmascaramiento de los bits más significativos para obtener los cuatro menores
+    shr $4, %r13            # Se mueven los bits 4 veces a la derecha
+    
+    mov digitos(%r11), %dl
+
+store_digit_16_high:
+    movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
+    inc %rsi                   # Se mueve a la siguiente posición del string
+    inc %r8                    # Se incrementa el contador
+    cmp $16, %r8               # Se pregunta si ya se hicieron la cantidad de agrupaciones máxima
+    je final_base_16
+    
+    jmp loop_base16_high
+
+final_base_16:
+    # Invierte la cadena
+    movq %rdi, %rdx
+    leaq -1(%rdi,%rsi,1), %rcx
+    call reversetest
     
     mov $buffer, %rax       # Carga la dirección del buffer en %rax
     call _genericprint      # Imprimir el string
