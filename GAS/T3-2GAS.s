@@ -131,7 +131,6 @@ _opResta:
 	jle _cambio_resta 		        # Resta num1-num2
 
 _restaEspecial:
-
 	subq %rsi, %rax  		# Resta num2-num1
 	negq %rax 				# Negar resultado
 	movq %rax, itoaNum(%rip) 	# Inicio itoa resta
@@ -140,8 +139,8 @@ _restaEspecial:
 _resta:
 
 	# Si el número es mayor que cierto dígito, se debe negar el resultado
-	mov $9900000000000000000, %r10
-	cmp %rsi, %r10
+	mov $9200000000000000000, %r10
+	cmp %rax, %r10
 	jae _restaEspecial
 
 	movb $1, flagNegativo(%rip)    # Indica que el número es negativo
@@ -165,8 +164,8 @@ _cambio_restaEspecial:
 _cambio_resta:
 
 	# Si el número es mayor que cierto dígito, se debe negar el resultado
-    movq $9900000000000000000, %r10
-    cmpq %rax, %r10
+    movq $9200000000000000000, %r10
+    cmpq %rsi, %r10
     jae _cambio_restaEspecial
     
     subq %rax, %rsi                 # Resta num1-num2
