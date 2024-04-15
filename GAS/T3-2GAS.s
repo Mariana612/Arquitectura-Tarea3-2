@@ -7,6 +7,7 @@
 	text1:		.asciz "Ingrese un numero\n"
 	digitos:	.asciz "0123456789ABCDEF"    	# Caracteres que representan los dígitos en base 16
 	errorCode:	.asciz "Error: Ingrese un numero valido\n"
+	prompt_msg: .ascii "Desea cambiar los numeros? 1. Si | 2. No\n"
 	itoaNum:	.quad 0							# numero para procesar en itoa (resultados de suma y resta)
 	itoaNumHigh:    .quad 0
 	itoaNumLow:     .quad 0
@@ -309,17 +310,28 @@ check_input:
 	movzb (%rsi, %rcx), %rax		# Cargar el byte actual
 	cmp $0xA, %rax
 	je input_valid					# Final del string alcanzado
-	cmp $0, %rax                   # Comprobar el final del string
-    je input_valid                 # Final del string alcanzado
 	cmp $'0', %rax
-	jb _finishError					# Revisa caracteres no imprimibles
+	jb input_invalid					# Revisa caracteres no imprimibles
 	cmp $'9', %rax
-	ja _finishError					# Revisa caracteres no imprimibles
+	ja input_invalid					# Revisa caracteres no imprimibles
 	inc %rcx						# Mover al siguiente byte
 	jmp check_input
 
 input_valid:
 	ret
+
+input_invalid:
+    call _cleanRegisters           # Llama a la función para limpiar los registros
+    movq $prompt_msg, %rax   # Carga la dirección del mensaje de solicitud en %rax
+    call _genericprint             # Imprime el mensaje de solicitud
+    
+    call _getOption                # Llama a la función para obtener la opción del usuario
+    cmpb $'1', numString(%rip)    # Comprueba si elige 1 para continuar cambiando números
+    je _finishErrorInput           # Salta a _finishErrorInput si la opción es 1
+    cmpb $'2', numString(%rip)    # Comprueba si elige 2 para finalizar el programa
+    je _finishCode                 # Salta a _finishCode si la opción es 2
+
+    jmp input_invalid              # Si la entrada no es válida, repite el proceso
 
 
 _specialCaseSub:
@@ -782,6 +794,12 @@ _overflowDetected:		# Check de overflow
 _flagInsideError:
     movb $1, flagHasError(%rip)    # Mueve el valor 1 al byte en la dirección de memoria de flagHasError
     ret                             # Retorna
+
+
+_finishErrorInput:
+    cmpb $1, flagIsInside(%rip)   # Compara el byte en flagIsInside con 1
+    je _flagInsideError            # Salta a _flagInsideError si el byte es igual a 1
+    jmp _start                     # Salta a _start en cualquier otro caso
 
 
 _finishError:
