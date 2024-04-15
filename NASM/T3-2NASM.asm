@@ -349,7 +349,13 @@ input_invalid:
 	mov rax, prompt_msg
 	call _genericprint
 	
+	mov byte[flagHasError],0 	;Reinicia el flag de error
+	mov byte[flagIsInside],1	;Establece que esta dentro de una funcion
+	
 	call _getOption
+	cmp byte[flagHasError],1
+	je input_invalid
+		
     cmp byte [numString], '1'   ; Si elige 1, continuar cambiando números
     je _finishErrorInput
     cmp byte [numString], '2'   ; Si elige 2, finalizar el programa

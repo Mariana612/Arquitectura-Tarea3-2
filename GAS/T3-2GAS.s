@@ -321,15 +321,22 @@ input_valid:
 	ret
 
 input_invalid:
-    call _cleanRegisters           # Llama a la función para limpiar los registros
-    movq $prompt_msg, %rax   # Carga la dirección del mensaje de solicitud en %rax
-    call _genericprint             # Imprime el mensaje de solicitud
+	movb $0, flagHasError(%rip)    # Reinicia el flag de error
+    movb $1, flagIsInside(%rip)    # Establece que está dentro de una función
+
+    call _cleanRegisters          
+    movq $prompt_msg, %rax   
+    call _genericprint             
     
-    call _getOption                # Llama a la función para obtener la opción del usuario
-    cmpb $'1', numString(%rip)    # Comprueba si elige 1 para continuar cambiando números
-    je _finishErrorInput           # Salta a _finishErrorInput si la opción es 1
-    cmpb $'2', numString(%rip)    # Comprueba si elige 2 para finalizar el programa
-    je _finishCode                 # Salta a _finishCode si la opción es 2
+    call _getOption 
+    
+    cmpb $1, flagHasError(%rip)
+    je input_invalid                     # Reinicia el loop
+                   
+    cmpb $'1', numString(%rip)   
+    je _finishErrorInput           
+    cmpb $'2', numString(%rip)    
+    je _finishCode                 
 
     jmp input_invalid              # Si la entrada no es válida, repite el proceso
 
@@ -589,13 +596,10 @@ loop_base8_low:
     and %r9, %r11               # Enmascaramiento de los bits menos significativos para obtener los tres menores
     shr $3, %r9                 # Se mueven los bits 3 veces a la derecha
 
-
 	mov digitos(%r11), %dl
 
-	movzb %dl, %r11d
-	movb digitos(%r11), %dl 
-
-
+	#movzb %dl, %r11d
+	#movb digitos(%r11), %dl 
 
 store_digit_8_low:
     movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
