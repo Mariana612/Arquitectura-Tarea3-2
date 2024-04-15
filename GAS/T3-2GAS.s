@@ -7,9 +7,6 @@
 	text1:		.asciz "Ingrese un numero\n"
 	digitos:	.asciz "0123456789ABCDEF"    	# Caracteres que representan los dígitos en base 16
 	errorCode:	.asciz "Error: Ingrese un numero valido\n"
-	errorInvalidInput: .asciz "Error: Numero invalido\n"
-	errorLengthChar: .asciz "Error: Mas caracteres de lo espererado\n"
-	getOptionError: .asciz "Error: Al conseguir la opcion\n"
 	itoaNum:	.quad 0							# numero para procesar en itoa (resultados de suma y resta)
 	itoaNumHigh:    .quad 0
 	itoaNumLow:     .quad 0
@@ -316,19 +313,15 @@ check_input:
 	cmp $0, %rax                   # Comprobar el final del string
     je input_valid                 # Final del string alcanzado
 	cmp $'0', %rax
-	jb input_invalid					# Revisa caracteres no imprimibles
+	jb _finishError					# Revisa caracteres no imprimibles
 	cmp $'9', %rax
-	ja input_invalid					# Revisa caracteres no imprimibles
+	ja _finishError					# Revisa caracteres no imprimibles
 	inc %rcx						# Mover al siguiente byte
 	jmp check_input
 
 input_valid:
 	ret
 
-input_invalid:
-	movq $errorInvalidInput, %rax
-	call _genericprint
-	jmp _start
 
 _specialCaseSub:
 	movq num1(%rip), %rax
@@ -343,13 +336,13 @@ _specialCaseSub:
 	movb $1, flagSpCase(%rip)			# Caso especial
 	ret
 
-_num20:						# Calcula la longitud de num2
-	movq num2(%rip), %rax
-	call _countInt
-	cmpb $20, length(%rip)
-	je _exitFunction			# Si ambos son de longitud 20 entonces no es caso especial
-	movb $1, flagSpCase(%rip)		# Es caso especial
-	ret
+	_num20:						# Calcula la longitud de num2
+		movq num2(%rip), %rax
+		call _countInt
+		cmpb $20, length(%rip)
+		je _exitFunction			# Si ambos son de longitud 20 entonces no es caso especial
+		movb $1, flagSpCase(%rip)		# Es caso especial
+		ret
 
 #-----------Calcula longitud de un numero
 
@@ -384,13 +377,9 @@ length_loop:
 
 length_done:
 	cmp $21, %rax
-	jg errorLength			# Error si es más largo a 21
+	jg _finishError			# Error si es más largo a 21
 	ret
 	
-errorLength:
-	movq $errorLengthChar, %rax
-	call _genericprint
-	jmp _start
 
 # ----------------- ATOI ----------------------------------
 
@@ -589,13 +578,13 @@ loop_base8_low:
     and %r9, %r11               # Enmascaramiento de los bits menos significativos para obtener los tres menores
     shr $3, %r9                 # Se mueven los bits 3 veces a la derecha
 
-<<<<<<< Updated upstream
+
 	mov digitos(%r11), %dl
-=======
+
 	movzb %dl, %r11d
 	movb digitos(%r11), %dl 
 
->>>>>>> Stashed changes
+
 
 store_digit_8_low:
     movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
@@ -753,8 +742,6 @@ _getText:
     
     call _inputCheck                      # se asegura de que se ingrese unicamente numeros
     call _lengthCheck
-    
-    
     call _AtoiStart
     ret
  
@@ -791,12 +778,20 @@ _printNeg:
 _overflowDetected:		# Check de overflow
 	movq $overflowMsg, %rax
 	call _genericprint
-	jmp _start
+	jmp _finishCode
+	
+_flagInsideError:
+    movb $1, flagHasError(%rip)    # Mueve el valor 1 al byte en la dirección de memoria de flagHasError
+    ret                             # Retorna
 
-_finishError:		# Finaliza código
-	movq $errorCode, %rax
-	call _genericprint
-	jmp _start
+
+_finishError:
+    movq $errorCode, %rax   # Carga el valor de errorCode en %rax
+    call _genericprint            # Llama a la función para imprimir el código de error
+    cmpb $1, flagIsInside(%rip)  # Compara el byte en flagIsInside con 1
+    je _flagInsideError           # Salta a _flagInsideError si el byte es igual a 1
+    jmp _start                    # Salta a _start en cualquier otro caso
+
 
 _finishCode:		# Finaliza código
 	movq $60, %rax

@@ -750,13 +750,8 @@ _overflowDetected:			;check de overflow
 	mov rax, overflowMsg
 	call _genericprint
 	
-	cmp byte[flagIsInside], 0
-	je _start
-
-	mov byte[flagHasError],1
-	ret
+	jmp _finishCode
 	
-
 
 _flagInsideError:
 	mov byte[flagHasError],1	
