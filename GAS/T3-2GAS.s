@@ -598,9 +598,6 @@ loop_base8_low:
 
 	mov digitos(%r11), %dl
 
-	#movzb %dl, %r11d
-	#movb digitos(%r11), %dl 
-
 store_digit_8_low:
     movb %dl, (%rdi, %rsi)    # Almacena el caracter en el string
     inc %rsi                   # Se mueve a la siguiente posición del string
