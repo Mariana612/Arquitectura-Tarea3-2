@@ -6,6 +6,7 @@ section .data
 	text1 db "Ingrese un numero", 0xA, 0 					
 	digitos db '0123456789ABCDEF'     						;Caracteres que representan los dígitos en base 16
 	errorCode db "ERROR: Ingrese un numero valido", 0xA, 0
+	prompt_msg db "Desea cambiar los numeros? 1. Si | 2. No" , 0xA, 0
 	itoaNum dq 0											;numero para procesar en itoa (resultados de suma y resta)
 	itoaNumHigh dq 0
 	itoaNumLow dq 0
@@ -333,14 +334,32 @@ _inputCheck:
         	cmp rax, 0xA
         	je input_valid				;Final del string alcanzado
         	cmp rax, '0'
-        	jb _finishError				;Revisa caracteres no imprimibles
+        	jb input_invalid				;Revisa caracteres no imprimibles
         	cmp rax, '9'
-        	ja _finishError				;Revisa caracteres no imprimibles
+        	ja input_invalid				;Revisa caracteres no imprimibles
         	inc rcx					;Mover al siguente byte
         	jmp check_input
 
 	input_valid:
 		ret
+
+
+input_invalid:
+	call _cleanRegisters
+	mov rax, prompt_msg
+	call _genericprint
+	
+	call _getOption
+    cmp byte [numString], '1'   ; Si elige 1, continuar cambiando números
+    je _finishErrorInput
+    cmp byte [numString], '2'   ; Si elige 2, finalizar el programa
+    je _finishCode
+    
+    
+    
+    jmp input_invalid           ; Si la entrada no es válida, repetir el proceso
+	
+	
 
 ;---#SPECIAL CASE
 ;handling de errores que causa que la funcion no pueda manejar numeros de 20 de largo, 
@@ -759,9 +778,17 @@ _flagInsideError:
 ;---------------- END PRINTS --------------------
 ;-------------------- Finalizacion de codigo 
 
+_finishErrorInput:
+	
+	cmp byte[flagIsInside], 1
+	je _flagInsideError
+
+	jmp _start
+
 _finishError:			;finaliza codigo
 	mov rax, errorCode
 	call _genericprint
+	
 	cmp byte[flagIsInside], 1
 	je _flagInsideError
 
